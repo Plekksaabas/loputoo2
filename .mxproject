@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=C:/Users/Jorgen/Dropbox/Lõputöö/test_uusboard/uusboard_2/Inc
+HeaderPath=C:/Users/Jorgen/Documents/git/Inc
 HeaderFiles=stm32f4xx_it.h;stm32f4xx_hal_conf.h;main.h;
-SourcePath=C:/Users/Jorgen/Dropbox/Lõputöö/test_uusboard/uusboard_2/Src
+SourcePath=C:/Users/Jorgen/Documents/git/Src
 SourceFiles=stm32f4xx_it.h;stm32f4xx_hal_conf.h;main.h;stm32f4xx_it.c;stm32f4xx_hal_msp.c;main.c;
 
 [PreviousLibFiles]

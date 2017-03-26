@@ -33,23 +33,28 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f4xx_hal.h"
-#include "registers.h"
-#include <stdbool.h>
-/* USER CODE BEGIN Includes */
 
+/* USER CODE BEGIN Includes */
+#include "registers.h"
+#include "stdbool.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-uint8_t receivedDataUART[2], receivedDataUARTBuffer [3], sendDataReadInfo[4], tempUnitSelection[5], tempSourceSelection[5], configurationFusionModeNDOF[5], configurationSettingsMode[5], configurationACCONLY [5];
+uint8_t tempUnitSelection[5], tempSourceSelection[5], configurationSettingsMode[5], configurationACCONLY[5], configurationMAGONLY[5], configurationGYROONLY[5], configurationACCMAG[5], configurationACCGYRO[5];
+uint8_t configurationMAGGYRO[5], configurationAMG[5], configurationIMU[5], configurationCOMPASS[5], configurationM4G[5], configurationNDOF_FMC_OFF[5], configurationFusionModeNDOF[5];
+uint8_t receivedDataUART[2], receivedDataUARTBuffer [32], sendDataReadInfo[4];
+uint8_t transferUartBuffer[64];
 int16_t acc_Z, acc_Y, acc_X = 0;
 int isitworking, dataruined = 0;
 int acc_Z_MSB, acc_Z_LSB, acc_Y_MSB, acc_Y_LSB, acc_X_MSB, acc_X_LSB, temperature, data = 0;
 bool config_error = false;
+bool accel_error = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,13 +63,115 @@ void Error_Handler(void);
 static void MX_GPIO_Init(void);
 static void MX_UART4_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+#ifdef __GNUC__
+	#define PUTCHAR_PROTOTYPE int __io_putchar (int ch)
+#else
+	#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+PUTCHAR_PROTOTYPE{
+	HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
+	
+	return ch;
+}
+void configuration(){
+	tempUnitSelection							[0] = UART_START_BYTE;
+	tempUnitSelection							[1] = UART_WRITE;
+	tempUnitSelection							[2] = UNIT_SEL_ADDR;
+	tempUnitSelection							[3] = 0x01;
+	tempUnitSelection							[4] = 0x00;
+	
+	tempSourceSelection       	  [0]  = UART_START_BYTE;
+	tempSourceSelection     	    [1]  = UART_WRITE;
+	tempSourceSelection       	  [2]  = TEMP_SOURCE_ADDR;
+	tempSourceSelection     	    [3]  = 0x01;
+	tempSourceSelection       	  [4]  = 0x00;	
+	
+	configurationSettingsMode 		[0] = UART_START_BYTE;
+	configurationSettingsMode 		[1] = UART_WRITE;
+	configurationSettingsMode 		[2] = OPR_MODE_ADDR;
+	configurationSettingsMode 		[3] = 0x01;
+	configurationSettingsMode 		[4] = 0x00;
+
+	configurationACCONLY 					[0] = UART_START_BYTE;
+	configurationACCONLY 					[1] = UART_WRITE;
+	configurationACCONLY 					[2] = OPR_MODE_ADDR;
+	configurationACCONLY 					[3] = 0x01;
+	configurationACCONLY 					[4] = 0x01;
+
+	configurationMAGONLY 					[0] = UART_START_BYTE;
+	configurationMAGONLY 					[1] = UART_WRITE;
+	configurationMAGONLY 					[2] = OPR_MODE_ADDR;
+	configurationMAGONLY 					[3] = 0x01;
+	configurationMAGONLY 					[4] = 0x02;
+
+	configurationGYROONLY 				[0] = UART_START_BYTE;
+	configurationGYROONLY 	 			[1] = UART_WRITE;
+	configurationGYROONLY 	 			[2] = OPR_MODE_ADDR;
+	configurationGYROONLY 	 			[3] = 0x01;
+	configurationGYROONLY 	 			[4] = 0x03;
+
+	configurationACCMAG 					[0] = UART_START_BYTE;
+	configurationACCMAG 	 				[1] = UART_WRITE;
+	configurationACCMAG 	 				[2] = OPR_MODE_ADDR;
+	configurationACCMAG 	 				[3] = 0x01;
+	configurationACCMAG 	 				[4] = 0x04;
+	
+	configurationACCGYRO 					[0] = UART_START_BYTE;
+	configurationACCGYRO 	 				[1] = UART_WRITE;
+	configurationACCGYRO 	 				[2] = OPR_MODE_ADDR;
+	configurationACCGYRO 	 				[3] = 0x01;
+	configurationACCGYRO 	 				[4] = 0x05;
+	
+	configurationMAGGYRO 					[0] = UART_START_BYTE;
+	configurationMAGGYRO 	 				[1] = UART_WRITE;
+	configurationMAGGYRO 	 				[2] = OPR_MODE_ADDR;
+	configurationMAGGYRO 	 				[3] = 0x01;
+	configurationMAGGYRO 	 				[4] = 0x06;
+
+	configurationAMG 							[0] = UART_START_BYTE;
+	configurationAMG 	 						[1] = UART_WRITE;
+	configurationAMG 	 						[2] = OPR_MODE_ADDR;
+	configurationAMG 	 						[3] = 0x01;
+	configurationAMG 	 						[4] = 0x07;
+
+	configurationIMU 							[0] = UART_START_BYTE;
+	configurationIMU 	 						[1] = UART_WRITE;
+	configurationIMU 	 						[2] = OPR_MODE_ADDR;
+	configurationIMU 	 						[3] = 0x01;
+	configurationIMU 	 						[4] = 0x08;
+
+	configurationCOMPASS 					[0] = UART_START_BYTE;
+	configurationCOMPASS 			 		[1] = UART_WRITE;
+	configurationCOMPASS 			 		[2] = OPR_MODE_ADDR;
+	configurationCOMPASS 			 		[3] = 0x01;
+	configurationCOMPASS 			 		[4] = 0x09;
+
+	configurationM4G 							[0] = UART_START_BYTE;
+	configurationM4G 	 						[1] = UART_WRITE;
+	configurationM4G 	 						[2] = OPR_MODE_ADDR;
+	configurationM4G 	 						[3] = 0x01;
+	configurationM4G 	 						[4] = 0x0A;
+			
+	configurationNDOF_FMC_OFF			[0] = UART_START_BYTE;
+	configurationNDOF_FMC_OFF 	 	[1] = UART_WRITE;
+	configurationNDOF_FMC_OFF 	 	[2] = OPR_MODE_ADDR;
+	configurationNDOF_FMC_OFF 	 	[3] = 0x01;
+	configurationNDOF_FMC_OFF 	 	[4] = 0x0B;
+												
+	configurationFusionModeNDOF 	[0] = UART_START_BYTE;
+	configurationFusionModeNDOF 	[1] = UART_WRITE;
+	configurationFusionModeNDOF 	[2] = OPR_MODE_ADDR;
+	configurationFusionModeNDOF 	[3] = 0x01;
+	configurationFusionModeNDOF 	[4] = 0x0C;
+	
+}
 void HAL_UART_RxCpltCallback (UART_HandleTypeDef *huart){ 	
 	byte_received = 1;
 }
@@ -115,92 +222,6 @@ int getTemperature(){
 
 	return data;
 }
-
-int getAcc_Z_MSB(){
-
-	int data 									 = 0;
-	sendDataReadInfo			 [0] = UART_START_BYTE;
-	sendDataReadInfo			 [1] = UART_READ;
-	sendDataReadInfo			 [2] = ACCEL_DATA_Z_MSB_ADDR;
-	sendDataReadInfo			 [3] = 0x01;
-
-	HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,50);
-	
-	data = getReadData();
-	
-return data;	
-}
-
-int getAcc_Z_LSB(){
-
-	int data 									 = 0;
-	sendDataReadInfo			 [0] = UART_START_BYTE;
-	sendDataReadInfo			 [1] = UART_READ;
-	sendDataReadInfo			 [2] = ACCEL_DATA_Z_LSB_ADDR;
-	sendDataReadInfo			 [3] = 0x01;
-	
-	HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,50);
-	
-	data = getReadData();	
-	
-return data;
-}
-int getAcc_Y_MSB(){
-	int data                   = 0;
-	sendDataReadInfo			 [0] = UART_START_BYTE;
-	sendDataReadInfo			 [1] = UART_READ;
-	sendDataReadInfo			 [2] = ACCEL_DATA_Y_MSB_ADDR;
-	sendDataReadInfo			 [3] = 0x01;
-	
-	HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,50);
-	
-	data = getReadData();	
-
-return data;		
-}
-
-int getAcc_Y_LSB(){
-	int data                   = 0;
-	sendDataReadInfo			 [0] = UART_START_BYTE;
-	sendDataReadInfo			 [1] = UART_READ;
-	sendDataReadInfo			 [2] = ACCEL_DATA_Y_LSB_ADDR;
-	sendDataReadInfo			 [3] = 0x01;
-	
-	HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,50);
-	
-	data = getReadData();	
-
-return data;		
-}
-int getAcc_X_MSB(){
-	
-	int data                   = 0;
-	sendDataReadInfo			 [0] = UART_START_BYTE;
-	sendDataReadInfo			 [1] = UART_READ;
-	sendDataReadInfo			 [2] = ACCEL_DATA_X_MSB_ADDR;
-	sendDataReadInfo			 [3] = 0x01;
-	
-	HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,50);
-	
-	data = getReadData();	
-
-return data;	
-}
-
-int getAcc_X_LSB(){
-	
-	int data                   = 0;
-	sendDataReadInfo			 [0] = UART_START_BYTE;
-	sendDataReadInfo			 [1] = UART_READ;
-	sendDataReadInfo			 [2] = ACCEL_DATA_X_LSB_ADDR;
-	sendDataReadInfo			 [3] = 0x01;
-	
-	HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,500);
-	
-	data = getReadData();	
-
-return data;	
-}
 bool configurationSettings(UART_HandleTypeDef *huart, uint8_t *dataToSend, int howManyBytes, int delay) {
 	byte_received   = 0;
 	int datareceive = 0;
@@ -224,52 +245,73 @@ bool configurationSettings(UART_HandleTypeDef *huart, uint8_t *dataToSend, int h
 	
 return data;
 }
+bool getAccData (){
+	bool error = false;
+	sendDataReadInfo			 [0] = UART_START_BYTE;
+	sendDataReadInfo			 [1] = UART_READ;
+	sendDataReadInfo			 [2] = ACCEL_DATA_X_LSB_ADDR;
+	sendDataReadInfo			 [3] = 0x06;
+
+	HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,50);
+	
+	byte_received = 0;
+	data			= 0;
+	int datareceive = 0;
+	
+	receivedDataUARTBuffer[0] = 0x00;
+	receivedDataUARTBuffer[1] = 0x00;
+	receivedDataUARTBuffer[2] = 0x00;
+
+	while (byte_received == 0){
+	if (datareceive == 0){
+		HAL_UART_Receive_IT(&huart1, receivedDataUARTBuffer, 8);
+		datareceive = 1;
+	}
+	if (receivedDataUARTBuffer[0] == 0xEE && receivedDataUARTBuffer[1] != 0x00){
+	  HAL_UART_Abort(&huart1);
+		byte_received = 1;
+		error = true;
+		return error;
+	}
+	if (byte_received == 1){
+		acc_X_LSB = receivedDataUARTBuffer[2];
+		acc_X_MSB = receivedDataUARTBuffer[3];
+		
+		acc_Y_LSB = receivedDataUARTBuffer[4];
+		acc_Y_MSB = receivedDataUARTBuffer[5];
+		
+		acc_Z_LSB = receivedDataUARTBuffer[6];
+		acc_Z_MSB = receivedDataUARTBuffer[7];
+	}
+
+}
+ 
+ return error;	
+
+}
 /* USER CODE END 0 */
 
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
-	tempUnitSelection						[0] = UART_START_BYTE;
-	tempUnitSelection						[1] = UART_WRITE;
-	tempUnitSelection						[2] = UNIT_SEL_ADDR;
-	tempUnitSelection						[3] = 0x01;
-	tempUnitSelection						[4] = 0x00;
-	
-	tempSourceSelection         [0]  = UART_START_BYTE;
-	tempSourceSelection         [1]  = UART_WRITE;
-	tempSourceSelection         [2]  = TEMP_SOURCE_ADDR;
-	tempSourceSelection         [3]  = 0x01;
-	tempSourceSelection         [4]  = 0x00;	
-	
-	configurationSettingsMode 	[0] = UART_START_BYTE;
-	configurationSettingsMode 	[1] = UART_WRITE;
-	configurationSettingsMode 	[2] = OPR_MODE_ADDR;
-	configurationSettingsMode 	[3] = 0x01;
-	configurationSettingsMode 	[4] = 0x00;
-	
-	configurationFusionModeNDOF [0] = UART_START_BYTE;
-	configurationFusionModeNDOF [1] = UART_WRITE;
-	configurationFusionModeNDOF [2] = OPR_MODE_ADDR;
-	configurationFusionModeNDOF [3] = 0x01;
-	configurationFusionModeNDOF [4] = 0x0C;
-	
-	configurationACCONLY 				[0] = UART_START_BYTE;
-	configurationACCONLY 				[1] = UART_WRITE;
-	configurationACCONLY 				[2] = OPR_MODE_ADDR;
-	configurationACCONLY 				[3] = 0x01;
-	configurationACCONLY 				[4] = 0x0C;
+	configuration();
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
   /* Configure the system clock */
   SystemClock_Config();
+
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_UART4_Init();
   MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
+
   /* USER CODE BEGIN 2 */
 	//CONFIGURATION SETTINGS
 	HAL_Delay(2000);
@@ -280,7 +322,10 @@ int main(void)
 		config_error = configurationSettings(&huart1, tempSourceSelection, 5, 200);
 	}	
 	if (config_error == false){
-	config_error = configurationSettings(&huart1, configurationFusionModeNDOF, 5, 200);
+		config_error = configurationSettings(&huart1, tempUnitSelection, 5, 200);
+	}	
+	if (config_error == false){
+	config_error = configurationSettings(&huart1, configurationACCONLY , 5, 200);
 	}	
 	HAL_Delay(500);	
   /* USER CODE END 2 */
@@ -293,15 +338,10 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
 	temperature  = getTemperature();
-  acc_Z_MSB    = getAcc_Z_MSB();
-	acc_Z_LSB    = getAcc_Z_LSB();
-	acc_Y_MSB    = getAcc_Y_MSB();
-	acc_Y_LSB    = getAcc_Y_LSB();
-  acc_X_MSB    = getAcc_X_MSB();
-	acc_X_LSB    = getAcc_X_LSB();
+	accel_error  = getAccData();
 	dataruined = 0;
 		
-	if (acc_X_MSB != 999 && acc_X_LSB != 999 && acc_Y_MSB != 999 && acc_Y_LSB != 999 && acc_Z_MSB != 999 && acc_Z_LSB != 999 && dataruined == 0 ){
+	if (accel_error == false){
 		acc_X = (acc_X_MSB << 8) | acc_X_LSB;	
 		acc_Y = (acc_Y_MSB << 8) | acc_Y_LSB;
 		acc_Z = (acc_Z_MSB << 8) | acc_Z_LSB;	
@@ -312,7 +352,9 @@ int main(void)
 		acc_Y = 9999;
 		acc_Z = 9999;
 	}
-		
+
+	printf("X = %d, Y = %d, Z = %d  \n", acc_X , acc_Y, acc_Z );
+	
 	HAL_Delay(300);	
 	isitworking++;
   }
@@ -403,6 +445,25 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+
+/* USART2 init function */
+static void MX_USART2_UART_Init(void)
+{
+
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
   {
     Error_Handler();
   }
