@@ -21,5 +21,7 @@
 .#*
 *.uvgui.*
 *.uvopt
+*.uvoptx
 /Drivers/
 MDK-ARM/uusboard_2.uvguix.Jorgen
+MDK-ARM/uusboard_2.uvoptx
