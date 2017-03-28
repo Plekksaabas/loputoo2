@@ -80,7 +80,7 @@ PUTCHAR_PROTOTYPE{
 	
 	return ch;
 }
-void configuration(){
+void initVariables(){
 	tempUnitSelection							[0] = UART_START_BYTE;
 	tempUnitSelection							[1] = UART_WRITE;
 	tempUnitSelection							[2] = UNIT_SEL_ADDR;
@@ -295,7 +295,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	configuration();
+	initVariables();
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -327,7 +327,7 @@ int main(void)
 	if (config_error == false){
 	config_error = configurationSettings(&huart1, configurationACCONLY , 5, 200);
 	}	
-	HAL_Delay(500);	
+	HAL_Delay(500);
   /* USER CODE END 2 */
 
   /* Infinite loop */
