@@ -53,6 +53,7 @@ uint8_t transferUartBuffer[64];
 int16_t acc_Z, acc_Y, acc_X = 0;
 int isitworking, dataruined = 0;
 int acc_Z_MSB, acc_Z_LSB, acc_Y_MSB, acc_Y_LSB, acc_X_MSB, acc_X_LSB, temperature, data = 0;
+int acc_X_offset, acc_Y_offset, acc_Z_offset;
 bool config_error = false;
 bool accel_error = false;
 /* USER CODE END PV */
@@ -337,11 +338,18 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-	temperature  = getTemperature();
+	//temperature  = getTemperature();
 	accel_error  = getAccData();
 	dataruined = 0;
-		
-	if (accel_error == false){
+	
+	if (isitworking == 100){
+		acc_X_offset = acc_X;
+		acc_Y_offset = acc_Y;
+		acc_Z_offset = acc_Z;
+	}
+	
+	
+	if (accel_error == false ){
 		acc_X = (acc_X_MSB << 8) | acc_X_LSB;	
 		acc_Y = (acc_Y_MSB << 8) | acc_Y_LSB;
 		acc_Z = (acc_Z_MSB << 8) | acc_Z_LSB;	
@@ -353,9 +361,13 @@ int main(void)
 		acc_Z = 9999;
 	}
 
-	printf("X = %d, Y = %d, Z = %d  \n", acc_X , acc_Y, acc_Z );
+		if (accel_error == false && isitworking > 150 ){
+		acc_X = acc_X - acc_X_offset;
+		acc_Y = acc_Y - acc_Y_offset;
+		acc_Z = acc_Z - acc_Z_offset;
+	}
 	
-	HAL_Delay(300);	
+	printf("X = %d, Y = %d, Z = %d  \n", acc_X , acc_Y, acc_Z );
 	isitworking++;
   }
   /* USER CODE END 3 */
