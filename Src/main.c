@@ -53,6 +53,7 @@ uint8_t transferUartBuffer[64];
 int16_t acc_Z, acc_Y, acc_X = 0;
 int isitworking, dataruined = 0;
 int acc_Z_MSB, acc_Z_LSB, acc_Y_MSB, acc_Y_LSB, acc_X_MSB, acc_X_LSB, temperature, data = 0;
+uint8_t uint8_acc_Z_MSB, uint8_acc_Z_LSB, uint8_acc_Y_MSB, uint8_acc_Y_LSB, uint8_acc_X_MSB, uint8_acc_X_LSB;
 int acc_X_offset, acc_Y_offset, acc_Z_offset;
 bool config_error = false;
 bool accel_error = false;
@@ -290,6 +291,49 @@ bool getAccData (){
  return error;	
 
 }
+bool calibrationOfAxisMode(){
+	
+	bool calibrationActive = true;
+	bool calibration_X_Active = true;
+	bool calibration_Y_Active = false;
+	bool calibration_Z_Active = false;
+	bool error = false;
+	
+	
+	
+	while (calibrationActive == true){
+		//for this set the X to a level surface
+		//activate led
+		while (calibration_X_Active == true){
+			
+			calibration_X_Active = false;
+			calibration_Y_Active = true;
+		}
+		
+		while (calibration_Y_Active == true){
+			
+			calibration_Y_Active = false;
+			calibration_Z_Active = true;
+		}
+		
+		while (calibration_Z_Active == true){
+			
+			calibration_Z_Active = false;
+			calibrationActive    = false;
+		}
+		
+		uint8_acc_X_LSB = acc_X_LSB;
+		uint8_acc_X_MSB = acc_X_MSB;
+		
+		uint8_acc_Y_LSB = acc_Y_LSB;
+		uint8_acc_Y_MSB = acc_Y_MSB;
+		
+		uint8_acc_Z_LSB = acc_Z_LSB;
+		uint8_acc_Z_MSB = acc_Z_MSB;
+	}
+	
+	return error;
+}
 /* USER CODE END 0 */
 
 int main(void)
@@ -317,17 +361,19 @@ int main(void)
 	//CONFIGURATION SETTINGS
 	HAL_Delay(2000);
 	if (config_error == false){
-		config_error = configurationSettings(&huart1, configurationSettingsMode, 5, 200);
+		if (config_error == false){
+			config_error = configurationSettings(&huart1, configurationSettingsMode, 5, 200);
+		}
+		if (config_error == false){
+			config_error = configurationSettings(&huart1, tempSourceSelection, 5, 200);
+		}	
+		if (config_error == false){
+			config_error = configurationSettings(&huart1, tempUnitSelection, 5, 200);
+		}	
+		if (config_error == false){
+		config_error = configurationSettings(&huart1, configurationACCONLY , 5, 200);
+		}	
 	}
-	if (config_error == false){
-		config_error = configurationSettings(&huart1, tempSourceSelection, 5, 200);
-	}	
-	if (config_error == false){
-		config_error = configurationSettings(&huart1, tempUnitSelection, 5, 200);
-	}	
-	if (config_error == false){
-	config_error = configurationSettings(&huart1, configurationACCONLY , 5, 200);
-	}	
 	HAL_Delay(500);
   /* USER CODE END 2 */
 
@@ -342,13 +388,6 @@ int main(void)
 	accel_error  = getAccData();
 	dataruined = 0;
 	
-	if (isitworking == 100){
-		acc_X_offset = acc_X;
-		acc_Y_offset = acc_Y;
-		acc_Z_offset = acc_Z;
-	}
-	
-	
 	if (accel_error == false ){
 		acc_X = (acc_X_MSB << 8) | acc_X_LSB;	
 		acc_Y = (acc_Y_MSB << 8) | acc_Y_LSB;
@@ -356,17 +395,12 @@ int main(void)
 	}
   else {
 		dataruined = 1;
-		acc_X = 9999;
-		acc_Y = 9999;
-		acc_Z = 9999;
 	}
 
-		if (accel_error == false && isitworking > 150 ){
-		acc_X = acc_X - acc_X_offset;
-		acc_Y = acc_Y - acc_Y_offset;
-		acc_Z = acc_Z - acc_Z_offset;
-	}
-	
+//	if calibrationOfAxisMode(5 seconds I have held the user button){
+//		
+//	}
+	HAL_Delay(100);
 	printf("X = %d, Y = %d, Z = %d  \n", acc_X , acc_Y, acc_Z );
 	isitworking++;
   }
