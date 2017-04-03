@@ -31,8 +31,15 @@
   ******************************************************************************
   */
 /* Includes ------------------------------------------------------------------*/
+#include <stdio.h>
 #include "main.h"
 #include "stm32f4xx_hal.h"
+/* new */
+#include <stdio.h>
+//#include "misc.h"
+//#include "stm32f4xx_rcc.h"
+//#include "stm32f4xx_gpio.h"
+
 
 /* USER CODE BEGIN Includes */
 #include "registers.h"
@@ -57,6 +64,7 @@ uint8_t uint8_acc_Z_MSB, uint8_acc_Z_LSB, uint8_acc_Y_MSB, uint8_acc_Y_LSB, uint
 int acc_X_offset, acc_Y_offset, acc_Z_offset;
 bool config_error = false;
 bool accel_error = false;
+bool buttonState;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -397,6 +405,7 @@ int main(void)
 		dataruined = 1;
 	}
 
+	buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
 //	if calibrationOfAxisMode(5 seconds I have held the user button){
 //		
 //	}
@@ -516,13 +525,27 @@ static void MX_USART2_UART_Init(void)
 
 }
 
-/** Pinout Configuration
+/** Configure pins as 
+        * Analog 
+        * Input 
+        * Output
+        * EVENT_OUT
+        * EXTI
 */
 static void MX_GPIO_Init(void)
 {
 
+  GPIO_InitTypeDef GPIO_InitStruct;
+
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /*Configure GPIO pin : PC13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
 }
 
