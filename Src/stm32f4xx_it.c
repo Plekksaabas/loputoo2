@@ -34,8 +34,51 @@
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_it.h"
+#include "delay.h"
+
 /* USER CODE BEGIN 0 */
 int byte_received = 0;
+int howManyMilliSeconds;
+static __IO uint32_t sysTickCounter;
+
+void SysTick_Init(void) {
+	/****************************************
+	 *SystemFrequency/1000      1ms         *
+	 *SystemFrequency/100000    10us        *
+	 *SystemFrequency/1000000   1us         *
+	 *****************************************/
+	while (SysTick_Config(SystemCoreClock / 1000) != 0) {
+		howManyMilliSeconds++;
+	} // One SysTick interrupt now equals 1us
+howManyMilliSeconds++;
+}
+
+/**
+ * This method needs to be called in the SysTick_Handler
+ */
+void TimeTick_Decrement() {
+	if (sysTickCounter != 0x00) {
+		sysTickCounter--;
+	}
+}
+
+void delay_nus(uint32_t n) {
+	sysTickCounter = n;
+	while (sysTickCounter != 0) {
+	}
+}
+
+void delay_1ms(void) {
+	sysTickCounter = 1000;
+	while (sysTickCounter != 0) {
+	}
+}
+
+void delay_nms(uint32_t n) {
+	while (n--) {
+		delay_1ms();
+	}
+}
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -171,6 +214,8 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
+	TimeTick_Decrement();
+	howManyMilliSeconds++;
 
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
@@ -213,6 +258,5 @@ void UART4_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
-
 /* USER CODE END 1 */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

@@ -43,6 +43,7 @@
 
 /* USER CODE BEGIN Private defines */
 extern int byte_received;
+extern int howManyMilliSeconds;
 /* USER CODE END Private defines */
 
 /**

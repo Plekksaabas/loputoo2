@@ -34,16 +34,14 @@
 #include <stdio.h>
 #include "main.h"
 #include "stm32f4xx_hal.h"
-/* new */
-#include <stdio.h>
-//#include "misc.h"
-//#include "stm32f4xx_rcc.h"
-//#include "stm32f4xx_gpio.h"
+
 
 
 /* USER CODE BEGIN Includes */
 #include "registers.h"
 #include "stdbool.h"
+#include "stm32f4xx_it.h"
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -62,6 +60,7 @@ int isitworking, dataruined = 0;
 int acc_Z_MSB, acc_Z_LSB, acc_Y_MSB, acc_Y_LSB, acc_X_MSB, acc_X_LSB, temperature, data = 0;
 uint8_t uint8_acc_Z_MSB, uint8_acc_Z_LSB, uint8_acc_Y_MSB, uint8_acc_Y_LSB, uint8_acc_X_MSB, uint8_acc_X_LSB;
 int acc_X_offset, acc_Y_offset, acc_Z_offset;
+int howManySeconds;
 bool config_error = false;
 bool accel_error = false;
 bool buttonState;
@@ -85,11 +84,13 @@ static void MX_USART2_UART_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+	
 PUTCHAR_PROTOTYPE{
 	HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
 	
 	return ch;
 }
+
 void initVariables(){
 	tempUnitSelection							[0] = UART_START_BYTE;
 	tempUnitSelection							[1] = UART_WRITE;
@@ -185,6 +186,7 @@ void initVariables(){
 void HAL_UART_RxCpltCallback (UART_HandleTypeDef *huart){ 	
 	byte_received = 1;
 }
+
 int getReadData(){
 
 	byte_received = 0;
@@ -293,10 +295,10 @@ bool getAccData (){
 		acc_Z_LSB = receivedDataUARTBuffer[6];
 		acc_Z_MSB = receivedDataUARTBuffer[7];
 	}
-
+ 
 }
  
- return error;	
+	return error;
 
 }
 bool calibrationOfAxisMode(){
@@ -346,7 +348,7 @@ bool calibrationOfAxisMode(){
 
 int main(void)
 {
-
+  
   /* USER CODE BEGIN 1 */
 	initVariables();
   /* USER CODE END 1 */
@@ -364,8 +366,9 @@ int main(void)
   MX_UART4_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
-
+  
   /* USER CODE BEGIN 2 */
+	
 	//CONFIGURATION SETTINGS
 	HAL_Delay(2000);
 	if (config_error == false){
@@ -387,7 +390,9 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
+  howManyMilliSeconds = 0;
+	
+	while (1)
   {
   /* USER CODE END WHILE */
 
@@ -409,14 +414,21 @@ int main(void)
 //	if calibrationOfAxisMode(5 seconds I have held the user button){
 //		
 //	}
-	HAL_Delay(100);
 	printf("X = %d, Y = %d, Z = %d  \n", acc_X , acc_Y, acc_Z );
 	isitworking++;
-  }
+  
+	howManySeconds = (howManyMilliSeconds / 1000);
+	
+	if (buttonState == false){
+		
+	}
+		
+	}
+	
+
   /* USER CODE END 3 */
 
 }
-
 /** System Clock Configuration
 */
 void SystemClock_Config(void)
