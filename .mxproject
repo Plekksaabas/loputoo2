@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=C:/Users/Jorgen/Documents/git/Inc
+HeaderPath=C:/Users/Jorgen/Documents/loputoo_3/Inc
 HeaderFiles=stm32f4xx_it.h;stm32f4xx_hal_conf.h;main.h;
-SourcePath=C:/Users/Jorgen/Documents/git/Src
+SourcePath=C:/Users/Jorgen/Documents/loputoo_3/Src
 SourceFiles=stm32f4xx_it.h;stm32f4xx_hal_conf.h;main.h;stm32f4xx_it.c;stm32f4xx_hal_msp.c;main.c;
 
 [PreviousLibFiles]

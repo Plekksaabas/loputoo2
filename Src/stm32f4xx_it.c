@@ -34,11 +34,13 @@
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_it.h"
-#include "delay.h"
 
 /* USER CODE BEGIN 0 */
 int byte_received = 0;
 int howManyMilliSeconds;
+int howManyMilliSecondsTheButtonHasBeenHeld = 0;
+int buttonState;
+int TIME_FreeUse;
 static __IO uint32_t sysTickCounter;
 
 void SysTick_Init(void) {
@@ -48,9 +50,9 @@ void SysTick_Init(void) {
 	 *SystemFrequency/1000000   1us         *
 	 *****************************************/
 	while (SysTick_Config(SystemCoreClock / 1000) != 0) {
-		howManyMilliSeconds++;
+
 	} // One SysTick interrupt now equals 1us
-howManyMilliSeconds++;
+
 }
 
 /**
@@ -214,11 +216,16 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
-	TimeTick_Decrement();
-	howManyMilliSeconds++;
-
   /* USER CODE BEGIN SysTick_IRQn 1 */
-
+  howManyMilliSeconds++;
+	TIME_FreeUse++;
+	
+	if (buttonState == 0){
+		howManyMilliSecondsTheButtonHasBeenHeld++;
+	}
+	if (buttonState == 1){
+		howManyMilliSecondsTheButtonHasBeenHeld = 0;
+	}
   /* USER CODE END SysTick_IRQn 1 */
 }
 

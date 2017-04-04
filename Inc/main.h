@@ -44,6 +44,9 @@
 /* USER CODE BEGIN Private defines */
 extern int byte_received;
 extern int howManyMilliSeconds;
+extern int howManyMilliSecondsTheButtonHasBeenHeld;
+extern int buttonState;
+extern int TIME_FreeUse;
 /* USER CODE END Private defines */
 
 /**

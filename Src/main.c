@@ -31,11 +31,8 @@
   ******************************************************************************
   */
 /* Includes ------------------------------------------------------------------*/
-#include <stdio.h>
 #include "main.h"
 #include "stm32f4xx_hal.h"
-
-
 
 /* USER CODE BEGIN Includes */
 #include "registers.h"
@@ -53,17 +50,20 @@ UART_HandleTypeDef huart2;
 /* Private variables ---------------------------------------------------------*/
 uint8_t tempUnitSelection[5], tempSourceSelection[5], configurationSettingsMode[5], configurationACCONLY[5], configurationMAGONLY[5], configurationGYROONLY[5], configurationACCMAG[5], configurationACCGYRO[5];
 uint8_t configurationMAGGYRO[5], configurationAMG[5], configurationIMU[5], configurationCOMPASS[5], configurationM4G[5], configurationNDOF_FMC_OFF[5], configurationFusionModeNDOF[5];
-uint8_t receivedDataUART[2], receivedDataUARTBuffer [32], sendDataReadInfo[4];
+uint8_t receivedDataUART[2], receivedDataUARTBuffer [32], sendDataReadInfo[4], sendDataUARTBuffer[10];
 uint8_t transferUartBuffer[64];
 int16_t acc_Z, acc_Y, acc_X = 0;
 int isitworking, dataruined = 0;
 int acc_Z_MSB, acc_Z_LSB, acc_Y_MSB, acc_Y_LSB, acc_X_MSB, acc_X_LSB, temperature, data = 0;
-uint8_t uint8_acc_Z_MSB, uint8_acc_Z_LSB, uint8_acc_Y_MSB, uint8_acc_Y_LSB, uint8_acc_X_MSB, uint8_acc_X_LSB;
+uint8_t OFFSET_Z_MSB, OFFSET_Z_LSB, OFFSET_Y_MSB, OFFSET_Y_LSB, OFFSET_X_MSB, OFFSET_X_LSB;
 int acc_X_offset, acc_Y_offset, acc_Z_offset;
 int howManySeconds;
 bool config_error = false;
 bool accel_error = false;
-bool buttonState;
+bool configureAccelerometerOffset_ERROR = false;
+int howManySecondsTheButtonHasBeenHeld = 0;
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,13 +84,36 @@ static void MX_USART2_UART_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-	
+void printAccelData(){
+	printf("X = %d, Y = %d, Z = %d  \n", acc_X , acc_Y, acc_Z );
+}	
 PUTCHAR_PROTOTYPE{
 	HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
 	
 	return ch;
 }
+void accDataConversionSoft(){
+	acc_X_LSB = acc_X_LSB - OFFSET_X_LSB;
+	acc_X_MSB = acc_X_MSB - OFFSET_X_MSB;
+		
+	acc_Y_LSB = acc_Y_LSB - OFFSET_Y_LSB;
+	acc_Y_MSB = acc_Y_MSB - OFFSET_Y_MSB;
+	
+	acc_Z_LSB = acc_Z_LSB - OFFSET_Z_LSB;
+	acc_Z_MSB = acc_Z_MSB - OFFSET_Z_MSB;
+	
+	acc_X = (acc_X_MSB << 8) | acc_X_LSB;	
+	acc_Y = (acc_Y_MSB << 8) | acc_Y_LSB;
+	acc_Z = (acc_Z_MSB << 8) | acc_Z_LSB;	
+	
+}
+void accDataConversion(){
 
+	acc_X = (acc_X_MSB << 8) | acc_X_LSB;	
+	acc_Y = (acc_Y_MSB << 8) | acc_Y_LSB;
+	acc_Z = (acc_Z_MSB << 8) | acc_Z_LSB;	
+	
+}
 void initVariables(){
 	tempUnitSelection							[0] = UART_START_BYTE;
 	tempUnitSelection							[1] = UART_WRITE;
@@ -301,54 +324,247 @@ bool getAccData (){
 	return error;
 
 }
-bool calibrationOfAxisMode(){
+bool configureAccelRange(){
+	bool error;
 	
-	bool calibrationActive = true;
-	bool calibration_X_Active = true;
-	bool calibration_Y_Active = false;
-	bool calibration_Z_Active = false;
-	bool error = false;
+	HAL_Delay(1000);
+	sendDataUARTBuffer[0] = UART_START_BYTE;
+	sendDataUARTBuffer[1] = UART_WRITE;
+	sendDataUARTBuffer[2] = ACCEL_RADIUS_LSB_ADDR;
+	sendDataUARTBuffer[3] = 0x04;
+	sendDataUARTBuffer[4] = 0x00;
+	sendDataUARTBuffer[5] = 0x80;
+	sendDataUARTBuffer[6] = 0x00;
+	sendDataUARTBuffer[7] = 0x00;
 	
+	error = configurationSettings(&huart1, sendDataUARTBuffer, 8, 200);
+	HAL_Delay(1000);
 	
-	
-	while (calibrationActive == true){
-		//for this set the X to a level surface
-		//activate led
-		while (calibration_X_Active == true){
-			
-			calibration_X_Active = false;
-			calibration_Y_Active = true;
+	return error;
+}
+void sendConfigurationSettings(){
+	if (config_error == false){
+		if (config_error == false){
+			config_error = configurationSettings(&huart1, configurationSettingsMode, 5, 200);
 		}
-		
-		while (calibration_Y_Active == true){
-			
-			calibration_Y_Active = false;
-			calibration_Z_Active = true;
+		if (config_error == false){
+			configureAccelRange();
 		}
+		if (config_error == false){
+			config_error = configurationSettings(&huart1, tempSourceSelection, 5, 200);
+		}	
+		if (config_error == false){
+			config_error = configurationSettings(&huart1, tempUnitSelection, 5, 200);
+		}	
+		if (config_error == false){
+			config_error = configurationSettings(&huart1, configurationACCONLY , 5, 200);
+		}	
+
 		
-		while (calibration_Z_Active == true){
-			
-			calibration_Z_Active = false;
-			calibrationActive    = false;
+		
+	}
+}
+bool configureAccelerometerOffset(){
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+	bool hasXDataBeenReceived = false;
+	bool hasYDataBeenReceived = false;
+	bool hasZDataBeenReceived = false;
+  bool error = false;
+	bool hasAccelerometerBeenConfigured = false;
+	HAL_Delay(2000);
+	buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+	receivedDataUART[0] = 0x00;
+	receivedDataUART[1] = 0x00;
+	
+	while (hasAccelerometerBeenConfigured == false){
+	  TIME_FreeUse = 0;		
+		HAL_Delay(200);
+		
+		while (hasXDataBeenReceived == false){
+			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+			if (TIME_FreeUse >= 1000){
+				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+				TIME_FreeUse = 0;
+			}
+			getAccData();
+			accDataConversion();
+			printAccelData();
+			if (buttonState == 0){
+				OFFSET_X_LSB = acc_X_LSB;
+				OFFSET_X_MSB = acc_X_MSB;
+				hasXDataBeenReceived = true;
+			}
 		}
+		HAL_Delay(200);
 		
-		uint8_acc_X_LSB = acc_X_LSB;
-		uint8_acc_X_MSB = acc_X_MSB;
+		while (hasYDataBeenReceived == false){
+			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+			if (TIME_FreeUse >= 400){
+				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+				TIME_FreeUse = 0;
+			}
+			getAccData();
+			accDataConversion();
+			printAccelData();			
+			if (buttonState == 0){
+				OFFSET_Y_LSB = acc_Y_LSB;
+				OFFSET_Y_MSB = acc_Y_MSB;
+				hasYDataBeenReceived = true;
+			}		
+		}
+		HAL_Delay(200);
 		
-		uint8_acc_Y_LSB = acc_Y_LSB;
-		uint8_acc_Y_MSB = acc_Y_MSB;
+		while (hasZDataBeenReceived == false){
+			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+			if (TIME_FreeUse >= 100){
+				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+			TIME_FreeUse = 0;
+			}
+			getAccData();
+			accDataConversion();
+			printAccelData();		
+			if (buttonState == 0){
+				OFFSET_Z_LSB = acc_Z_LSB;
+				OFFSET_Z_MSB = acc_Z_MSB;
+				hasZDataBeenReceived = true;
+			}		
+		}	
+	
+	if (hasXDataBeenReceived == true && hasYDataBeenReceived == true && hasZDataBeenReceived == true){
+		hasAccelerometerBeenConfigured = true;
+	}
+	
+	}
+
+	
+	error = configurationSettings(&huart1, configurationSettingsMode, 5, 200);
+	byte_received = 0;
+	HAL_Delay(1000);
+	sendDataUARTBuffer[0] = UART_START_BYTE;
+	sendDataUARTBuffer[1] = UART_WRITE;
+	sendDataUARTBuffer[2] = ACCEL_OFFSET_X_LSB_ADDR;
+	sendDataUARTBuffer[3] = 0x02;
+	
+	sendDataUARTBuffer[4] = OFFSET_X_LSB;
+	sendDataUARTBuffer[5] = OFFSET_X_MSB;
+	
+	
+	receivedDataUART[0] = 0x00;
+	receivedDataUART[1] = 0x00;
+	
+	error = configurationSettings(&huart1, sendDataUARTBuffer, 6, 200);
+	HAL_Delay(1000);
+	
+	sendDataUARTBuffer[2] = ACCEL_OFFSET_Y_LSB_ADDR;
+	sendDataUARTBuffer[4] = OFFSET_Y_LSB;
+	sendDataUARTBuffer[5] = OFFSET_Y_MSB;
+	error = configurationSettings(&huart1, sendDataUARTBuffer, 6, 200);
+	HAL_Delay(1000);
+	
+	sendDataUARTBuffer[2] = ACCEL_OFFSET_Z_LSB_ADDR;
+	sendDataUARTBuffer[3] = 0x01;
+	sendDataUARTBuffer[4] = OFFSET_Z_LSB;
+	error = configurationSettings(&huart1, sendDataUARTBuffer, 5, 200);
+	HAL_Delay(1000);
+	
+	sendDataUARTBuffer[2] = ACCEL_OFFSET_Z_MSB_ADDR;
+	sendDataUARTBuffer[3] = 0x01;
+	sendDataUARTBuffer[4] = OFFSET_Z_MSB;
+	error = configurationSettings(&huart1, sendDataUARTBuffer, 5, 200);
+	HAL_Delay(1000);	
+	
+	error = configurationSettings(&huart1, configurationACCONLY, 5, 200);
+	HAL_Delay(1000);
+	
+	
+	return error;
+}
+
+bool configureAccelerometerOffsetSoft(){
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+	bool hasXDataBeenReceived = false;
+	bool hasYDataBeenReceived = false;
+	bool hasZDataBeenReceived = false;
+  bool error = false;
+	bool hasAccelerometerBeenConfigured = false;
+	OFFSET_X_LSB = 0;
+	OFFSET_X_MSB = 0;
+	OFFSET_Y_LSB = 0;
+	OFFSET_Y_MSB = 0;
+	OFFSET_Z_LSB = 0;
+	OFFSET_Z_MSB = 0;
+
+	HAL_Delay(2000);
+	buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+	
+	while (hasAccelerometerBeenConfigured == false){
+	  TIME_FreeUse = 0;		
+		HAL_Delay(200);
 		
-		uint8_acc_Z_LSB = acc_Z_LSB;
-		uint8_acc_Z_MSB = acc_Z_MSB;
+		while (hasXDataBeenReceived == false){
+			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+			if (TIME_FreeUse >= 1000){
+				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+				TIME_FreeUse = 0;
+			}
+			getAccData();
+			accDataConversion();
+			printAccelData();
+			if (buttonState == 0){
+				OFFSET_X_LSB = acc_X_LSB;
+				OFFSET_X_MSB = acc_X_MSB;
+				hasXDataBeenReceived = true;
+			}
+		}
+		HAL_Delay(200);
+		
+		while (hasYDataBeenReceived == false){
+			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+			if (TIME_FreeUse >= 400){
+				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+				TIME_FreeUse = 0;
+			}
+			getAccData();
+			accDataConversion();
+			printAccelData();			
+			if (buttonState == 0){
+				OFFSET_Y_LSB = acc_Y_LSB;
+				OFFSET_Y_MSB = acc_Y_MSB;
+				hasYDataBeenReceived = true;
+			}		
+		}
+		HAL_Delay(200);
+		
+		while (hasZDataBeenReceived == false){
+			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+			if (TIME_FreeUse >= 100){
+				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+			TIME_FreeUse = 0;
+			}
+			getAccData();
+			accDataConversion();
+			printAccelData();		
+			if (buttonState == 0){
+				OFFSET_Z_LSB = acc_Z_LSB;
+				OFFSET_Z_MSB = acc_Z_MSB;
+				hasZDataBeenReceived = true;
+			}		
+		}	
+	
+	if (hasXDataBeenReceived == true && hasYDataBeenReceived == true && hasZDataBeenReceived == true){
+		hasAccelerometerBeenConfigured = true;
+	}
+	
 	}
 	
 	return error;
 }
+
 /* USER CODE END 0 */
 
 int main(void)
 {
-  
+
   /* USER CODE BEGIN 1 */
 	initVariables();
   /* USER CODE END 1 */
@@ -366,31 +582,19 @@ int main(void)
   MX_UART4_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
-  
+
   /* USER CODE BEGIN 2 */
 	
 	//CONFIGURATION SETTINGS
 	HAL_Delay(2000);
-	if (config_error == false){
-		if (config_error == false){
-			config_error = configurationSettings(&huart1, configurationSettingsMode, 5, 200);
-		}
-		if (config_error == false){
-			config_error = configurationSettings(&huart1, tempSourceSelection, 5, 200);
-		}	
-		if (config_error == false){
-			config_error = configurationSettings(&huart1, tempUnitSelection, 5, 200);
-		}	
-		if (config_error == false){
-		config_error = configurationSettings(&huart1, configurationACCONLY , 5, 200);
-		}	
-	}
+	sendConfigurationSettings();
 	HAL_Delay(500);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   howManyMilliSeconds = 0;
+	howManyMilliSecondsTheButtonHasBeenHeld = 0;
 	
 	while (1)
   {
@@ -402,33 +606,38 @@ int main(void)
 	dataruined = 0;
 	
 	if (accel_error == false ){
-		acc_X = (acc_X_MSB << 8) | acc_X_LSB;	
-		acc_Y = (acc_Y_MSB << 8) | acc_Y_LSB;
-		acc_Z = (acc_Z_MSB << 8) | acc_Z_LSB;	
+		accDataConversion();
 	}
   else {
 		dataruined = 1;
 	}
 
 	buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+	
 //	if calibrationOfAxisMode(5 seconds I have held the user button){
 //		
 //	}
-	printf("X = %d, Y = %d, Z = %d  \n", acc_X , acc_Y, acc_Z );
+	printAccelData();
 	isitworking++;
   
 	howManySeconds = (howManyMilliSeconds / 1000);
 	
-	if (buttonState == false){
-		
+  howManySecondsTheButtonHasBeenHeld = 	howManyMilliSecondsTheButtonHasBeenHeld / 1000;
+	
+	if (howManySecondsTheButtonHasBeenHeld >= 5){		
+		configureAccelerometerOffset_ERROR = configureAccelerometerOffset();
 	}
-		
+	else{
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 	}
 	
 
+
   /* USER CODE END 3 */
 
+  }
 }
+
 /** System Clock Configuration
 */
 void SystemClock_Config(void)
@@ -553,11 +762,21 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
