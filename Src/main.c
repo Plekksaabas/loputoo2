@@ -49,15 +49,17 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 uint8_t tempUnitSelection[5], tempSourceSelection[5], configurationSettingsMode[5], configurationACCONLY[5], configurationMAGONLY[5], configurationGYROONLY[5], configurationACCMAG[5], configurationACCGYRO[5];
-uint8_t configurationMAGGYRO[5], configurationAMG[5], configurationIMU[5], configurationCOMPASS[5], configurationM4G[5], configurationNDOF_FMC_OFF[5], configurationFusionModeNDOF[5];
+uint8_t configurationPage_ID_0[5], configurationPage_ID[5], configurationMAGGYRO[5], configurationAMG[5], configurationIMU[5], configurationCOMPASS[5], configurationM4G[5], configurationNDOF_FMC_OFF[5], configurationFusionModeNDOF[5];
 uint8_t receivedDataUART[2], receivedDataUARTBuffer [32], sendDataReadInfo[4], sendDataUARTBuffer[10];
 uint8_t transferUartBuffer[64];
+uint8_t readDataSingleReadBuffer[5], readDataSingleWriteBuffer[5], configurationACCELRANGE[5];
 int16_t acc_Z, acc_Y, acc_X = 0;
 int isitworking, dataruined = 0;
 int acc_Z_MSB, acc_Z_LSB, acc_Y_MSB, acc_Y_LSB, acc_X_MSB, acc_X_LSB, temperature, data = 0;
 uint8_t OFFSET_Z_MSB, OFFSET_Z_LSB, OFFSET_Y_MSB, OFFSET_Y_LSB, OFFSET_X_MSB, OFFSET_X_LSB;
 int acc_X_offset, acc_Y_offset, acc_Z_offset;
 int howManySeconds;
+int dataGetReadDataSingle;
 bool config_error = false;
 bool accel_error = false;
 bool configureAccelerometerOffset_ERROR = false;
@@ -120,6 +122,27 @@ void initVariables(){
 	tempUnitSelection							[2] = UNIT_SEL_ADDR;
 	tempUnitSelection							[3] = 0x01;
 	tempUnitSelection							[4] = 0x00;
+	
+	configurationPage_ID					[0] = UART_START_BYTE;
+	configurationPage_ID					[1] = UART_WRITE;
+	configurationPage_ID					[2] = PAGE_ID_ADDR;
+	configurationPage_ID					[3] = 0x01;
+	configurationPage_ID					[4] = 0x01;
+
+	configurationPage_ID_0					[0] = UART_START_BYTE;
+	configurationPage_ID_0					[1] = UART_WRITE;
+	configurationPage_ID_0					[2] = PAGE_ID_ADDR;
+	configurationPage_ID_0					[3] = 0x01;
+	configurationPage_ID_0					[4] = 0x00;
+	
+	
+	
+	configurationACCELRANGE       [0] = UART_START_BYTE;
+	configurationACCELRANGE       [1] = UART_WRITE;
+	configurationACCELRANGE       [2] = ACCEL_CONFIG_ADDR;
+	configurationACCELRANGE       [3] = 0x01;
+	configurationACCELRANGE       [4] = 0x02;
+	
 	
 	tempSourceSelection       	  [0]  = UART_START_BYTE;
 	tempSourceSelection     	    [1]  = UART_WRITE;
@@ -342,20 +365,68 @@ bool configureAccelRange(){
 	
 	return error;
 }
+int getReadDataSingle(uint8_t registerSelection){
+
+	byte_received = 0;
+	data			= 0;
+	int datareceive = 0;
+
+	readDataSingleWriteBuffer[0] = UART_START_BYTE;
+	readDataSingleWriteBuffer[1] = UART_READ;
+	
+	readDataSingleWriteBuffer[2] = registerSelection;
+	readDataSingleWriteBuffer[3] = 0x01;
+	readDataSingleWriteBuffer[4] = 0x02;
+	
+  HAL_UART_Transmit(&huart1, readDataSingleWriteBuffer,5,200);
+	
+	while (byte_received == 0){
+	if (datareceive == 0){
+		HAL_UART_Receive_IT(&huart1, readDataSingleReadBuffer, 3);
+		datareceive = 1;
+	}
+	if (receivedDataUARTBuffer[0] == 0xEE){
+	  HAL_UART_Abort(&huart1);
+		byte_received = 1;
+		data = 999;
+		return data;
+	}
+	if (byte_received == 1){
+		data = readDataSingleReadBuffer[2];
+	}
+
+}
+ 
+ return data;		
+}
 void sendConfigurationSettings(){
 	if (config_error == false){
 		if (config_error == false){
 			config_error = configurationSettings(&huart1, configurationSettingsMode, 5, 200);
 		}
+		
 		if (config_error == false){
-			configureAccelRange();
+			config_error = configurationSettings(&huart1, configurationPage_ID, 5, 200);
 		}
+		
 		if (config_error == false){
-			config_error = configurationSettings(&huart1, tempSourceSelection, 5, 200);
-		}	
+			dataGetReadDataSingle = getReadDataSingle(ACCEL_CONFIG_ADDR);
+		}
+//		if (config_error == false){
+//			config_error = configurationSettings(&huart1, configurationACCELRANGE, 5, 200);
+//		}
+//		if (config_error == false){
+//			dataGetReadDataSingle = getReadDataSingle(ACCEL_CONFIG_ADDR);
+//		}
+//		if (config_error == false){
+//			config_error = configurationSettings(&huart1, tempSourceSelection, 5, 200);
+//		}	
+//		if (config_error == false){
+//			config_error = configurationSettings(&huart1, tempUnitSelection, 5, 200);
+//		}	
 		if (config_error == false){
-			config_error = configurationSettings(&huart1, tempUnitSelection, 5, 200);
-		}	
+			config_error = configurationSettings(&huart1, configurationPage_ID_0, 5, 200);
+		}
 		if (config_error == false){
 			config_error = configurationSettings(&huart1, configurationACCONLY , 5, 200);
 		}	
@@ -559,6 +630,7 @@ bool configureAccelerometerOffsetSoft(){
 	
 	return error;
 }
+
 
 /* USER CODE END 0 */
 
