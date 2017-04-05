@@ -50,6 +50,7 @@ UART_HandleTypeDef huart2;
 /* Private variables ---------------------------------------------------------*/
 uint8_t CONFIG_temp_UnitSelection[5], CONFIG_temp_SourceSelection[5], CONFIG_Mode_Configuration[5], CONFIG_Mode_Accelerometer_Only[5], CONFIG_Mode_Magnetometer_Only[5], CONFIG_Mode_Gyroscope_Only[5], CONFIG_Mode_Accelerometer_Magnetometer[5], CONFIG_Mode_Accelerometer_Gyroscope[5];
 uint8_t CONFIG_configurationPage_ID_0[5], CONFIG_configurationPage_ID_1[5], CONFIG_Mode_Magnetometer_Gyroscope[5], CONFIG_Mode_Accelerometer_Magnetometer_Gyroscope[5], CONFIG_Mode_Inertial_Measurement_Unit[5], CONFIG_Mode_Compass[5], CONFIG_Mode_Magnet_For_Compass[5], CONFIG_Mode_NDOF_FMC_OFF[5], CONFIG_Mode_NDOF[5];
+uint8_t CONFIG_register_Page_0[5], CONFIG_register_Page_1[5];
 uint8_t receivedDataUART[2], receivedDataUARTBuffer [32], sendDataReadInfo[4], sendDataUARTBuffer[10];
 uint8_t transferUartBuffer[64];
 uint8_t readDataSingleReadBuffer[5], readDataSingleWriteBuffer[5], CONFIG_accel_RangeSelection[5];
@@ -95,15 +96,15 @@ bool getWriteResonseData(){
 	byte_received   = 0;
 	int datareceive = 0;
 	
-	receivedDataUARTBuffer[0] = 0x00;
-	receivedDataUARTBuffer[1] = 0x00;
+	receivedDataUART[0] = 0x00;
+	receivedDataUART[1] = 0x00;
 
 	while (byte_received == 0){
 		if (datareceive == 0){
-			HAL_UART_Receive_IT(&huart1, receivedDataUARTBuffer, 2);
+			HAL_UART_Receive_IT(&huart1, receivedDataUART, 2);
 			datareceive = 1;
 		}
-		if (receivedDataUARTBuffer[0] == 0xEE && receivedDataUARTBuffer[1] != 0x01){
+		if (receivedDataUART[0] == 0xEE && receivedDataUART[1] != 0x01){
 			HAL_UART_Abort(&huart1);
 			byte_received = 1;
 			error = true;
@@ -126,7 +127,7 @@ bool setRegisterMapPage_0(){
 	
 	error = getWriteResonseData();
 	if (error == true){
-		HAL_UART_Receive(&huart1, receivedDataUART, 5, 200);
+		HAL_UART_Transmit(&huart1, sendDataUARTBuffer, 5, 200);
 		error = getWriteResonseData();
 	}
 	
@@ -141,7 +142,7 @@ bool setRegisterMapPage_1(){
 	sendDataUARTBuffer [3] = 0x01;
 	sendDataUARTBuffer [4] = 0x01;
 	
-	HAL_UART_Receive(&huart1, sendDataUARTBuffer, 5, 200);
+	HAL_UART_Transmit(&huart1, sendDataUARTBuffer, 5, 200);
 		
 	error = getWriteResonseData();
 	if (error == true){
@@ -152,6 +153,18 @@ bool setRegisterMapPage_1(){
 	return error;
 }
 void initializeConfigurationVariables(){
+	CONFIG_register_Page_0														[0] = UART_START_BYTE;
+	CONFIG_register_Page_0														[1] = UART_WRITE;
+	CONFIG_register_Page_0														[2] = PAGE_ID_ADDR;
+	CONFIG_register_Page_0														[3] = 0x01;
+	CONFIG_register_Page_0														[4] = 0x00;
+	
+	CONFIG_register_Page_1														[0] = UART_START_BYTE;
+	CONFIG_register_Page_1														[1] = UART_WRITE;
+	CONFIG_register_Page_1														[2] = PAGE_ID_ADDR;
+	CONFIG_register_Page_1														[3] = 0x01;
+	CONFIG_register_Page_1														[4] = 0x01;	
+	
 	CONFIG_temp_UnitSelection													[0] = UART_START_BYTE;
 	CONFIG_temp_UnitSelection													[1] = UART_WRITE;
 	CONFIG_temp_UnitSelection													[2] = UNIT_SEL_ADDR;
@@ -174,7 +187,7 @@ void initializeConfigurationVariables(){
 	CONFIG_accel_RangeSelection												[1] = UART_WRITE;
 	CONFIG_accel_RangeSelection   								    [2] = ACCEL_CONFIG_ADDR;
 	CONFIG_accel_RangeSelection       								[3] = 0x01;
-	CONFIG_accel_RangeSelection      							 		[4] = 0x0D;
+	CONFIG_accel_RangeSelection      							 		[4] = 0x02;
 		
 	CONFIG_temp_SourceSelection      							 	  [0]  = UART_START_BYTE;
 	CONFIG_temp_SourceSelection     							    [1]  = UART_WRITE;
@@ -425,15 +438,15 @@ void initConfigurationSettings(){
 			config_error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
 		}
 		
-//		if (config_error == false){
-//			config_error = setRegisterMapPage_1();
-//		}		
+		if (config_error == false){
+			config_error = sendConfigurationSettings(&huart1, CONFIG_configurationPage_ID_1, 5, 200);
+		}		
 		if (config_error == false){
 			config_error = sendConfigurationSettings(&huart1, CONFIG_accel_RangeSelection, 5, 200);
 		}
-//		if (config_error == false){
-//			config_error = setRegisterMapPage_0();
-//		}		
+		if (config_error == false){
+			config_error = sendConfigurationSettings(&huart1, CONFIG_configurationPage_ID_0, 5, 200);
+		}				
 		if (config_error == false){
 			config_error = sendConfigurationSettings(&huart1, CONFIG_temp_SourceSelection, 5, 200);
 		}	
@@ -531,13 +544,19 @@ bool setAccelerometerOffset(){
 	if (error == true){
 		error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
 	}
+	HAL_Delay(1000);
+	error = sendConfigurationSettings(&huart1, CONFIG_register_Page_0, 5, 200);
+	if (error == true){
+		error = sendConfigurationSettings(&huart1, CONFIG_register_Page_0, 5, 200);
+	}	
+	
 	//HERE NEED TO CHANGE THE REGISTER PAGE TO WRITE
 	byte_received = 0;
 	HAL_Delay(1000);
 	sendDataUARTBuffer[0] = UART_START_BYTE;
 	sendDataUARTBuffer[1] = UART_WRITE;
 	sendDataUARTBuffer[2] = ACCEL_OFFSET_X_LSB_ADDR;
-	sendDataUARTBuffer[3] = 0x02;
+	sendDataUARTBuffer[3] = 0x06;
 
 	sendDataUARTBuffer[4] = OFFSET_X_LSB;
 	sendDataUARTBuffer[5] = OFFSET_X_MSB;
@@ -557,6 +576,10 @@ bool setAccelerometerOffset(){
 	}
 	HAL_Delay(1000);
 	
+	error = sendConfigurationSettings(&huart1, CONFIG_register_Page_0, 5, 200);
+	if (error == true){
+		error = sendConfigurationSettings(&huart1, CONFIG_register_Page_0, 5, 200);
+	}
 	error = sendConfigurationSettings(&huart1, CONFIG_Mode_Accelerometer_Only, 5, 200);
 	HAL_Delay(1000);
 	
