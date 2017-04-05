@@ -48,18 +48,18 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-uint8_t tempUnitSelection[5], tempSourceSelection[5], configurationSettingsMode[5], configurationACCONLY[5], configurationMAGONLY[5], configurationGYROONLY[5], configurationACCMAG[5], configurationACCGYRO[5];
-uint8_t configurationPage_ID_0[5], configurationPage_ID[5], configurationMAGGYRO[5], configurationAMG[5], configurationIMU[5], configurationCOMPASS[5], configurationM4G[5], configurationNDOF_FMC_OFF[5], configurationFusionModeNDOF[5];
+uint8_t CONFIG_temp_UnitSelection[5], CONFIG_temp_SourceSelection[5], CONFIG_Mode_Configuration[5], CONFIG_Mode_Accelerometer_Only[5], CONFIG_Mode_Magnetometer_Only[5], CONFIG_Mode_Gyroscope_Only[5], CONFIG_Mode_Accelerometer_Magnetometer[5], CONFIG_Mode_Accelerometer_Gyroscope[5];
+uint8_t CONFIG_configurationPage_ID_0[5], CONFIG_configurationPage_ID_1[5], CONFIG_Mode_Magnetometer_Gyroscope[5], CONFIG_Mode_Accelerometer_Magnetometer_Gyroscope[5], CONFIG_Mode_Inertial_Measurement_Unit[5], CONFIG_Mode_Compass[5], CONFIG_Mode_Magnet_For_Compass[5], CONFIG_Mode_NDOF_FMC_OFF[5], CONFIG_Mode_NDOF[5];
 uint8_t receivedDataUART[2], receivedDataUARTBuffer [32], sendDataReadInfo[4], sendDataUARTBuffer[10];
 uint8_t transferUartBuffer[64];
-uint8_t readDataSingleReadBuffer[5], readDataSingleWriteBuffer[5], configurationACCELRANGE[5];
+uint8_t readDataSingleReadBuffer[5], readDataSingleWriteBuffer[5], CONFIG_accel_RangeSelection[5];
 int16_t acc_Z, acc_Y, acc_X = 0;
 int isitworking, dataruined = 0;
 int acc_Z_MSB, acc_Z_LSB, acc_Y_MSB, acc_Y_LSB, acc_X_MSB, acc_X_LSB, temperature, data = 0;
 uint8_t OFFSET_Z_MSB, OFFSET_Z_LSB, OFFSET_Y_MSB, OFFSET_Y_LSB, OFFSET_X_MSB, OFFSET_X_LSB;
 int acc_X_offset, acc_Y_offset, acc_Z_offset;
 int howManySeconds;
-int dataGetReadDataSingle;
+int Data_getReadDataSingleRegister;
 bool config_error = false;
 bool accel_error = false;
 bool configureAccelerometerOffset_ERROR = false;
@@ -85,149 +85,189 @@ static void MX_USART2_UART_Init(void);
 #endif
 /* USER CODE END PFP */
 
-/* USER CODE BEGIN 0 */
+/* USER CODE BEGIN 0 */	
+PUTCHAR_PROTOTYPE{
+	HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);	
+	return ch;
+}
+bool getWriteResonseData(){
+	bool error      = false;
+	byte_received   = 0;
+	int datareceive = 0;
+	
+	receivedDataUARTBuffer[0] = 0x00;
+	receivedDataUARTBuffer[1] = 0x00;
+
+	while (byte_received == 0){
+		if (datareceive == 0){
+			HAL_UART_Receive_IT(&huart1, receivedDataUARTBuffer, 2);
+			datareceive = 1;
+		}
+		if (receivedDataUARTBuffer[0] == 0xEE && receivedDataUARTBuffer[1] != 0x01){
+			HAL_UART_Abort(&huart1);
+			byte_received = 1;
+			error = true;
+			return error;
+		}
+	}
+ 
+ return error;	
+}
+bool setRegisterMapPage_0(){
+	bool error             = false;
+	
+	sendDataUARTBuffer [0] = UART_START_BYTE;
+	sendDataUARTBuffer [1] = UART_WRITE;
+	sendDataUARTBuffer [2] = PAGE_ID_ADDR;
+	sendDataUARTBuffer [3] = 0x01;
+	sendDataUARTBuffer [4] = 0x00;
+	
+	HAL_UART_Transmit(&huart1, sendDataUARTBuffer, 5, 200);
+	
+	error = getWriteResonseData();
+	if (error == true){
+		HAL_UART_Receive(&huart1, receivedDataUART, 5, 200);
+		error = getWriteResonseData();
+	}
+	
+	return error;
+}
+bool setRegisterMapPage_1(){
+	bool error;
+	
+	sendDataUARTBuffer [0] = UART_START_BYTE;
+	sendDataUARTBuffer [1] = UART_WRITE;
+	sendDataUARTBuffer [2] = PAGE_ID_ADDR;
+	sendDataUARTBuffer [3] = 0x01;
+	sendDataUARTBuffer [4] = 0x01;
+	
+	HAL_UART_Receive(&huart1, sendDataUARTBuffer, 5, 200);
+		
+	error = getWriteResonseData();
+	if (error == true){
+		HAL_UART_Transmit(&huart1, sendDataUARTBuffer, 5, 200);
+		error = getWriteResonseData();
+	}
+	
+	return error;
+}
+void initializeConfigurationVariables(){
+	CONFIG_temp_UnitSelection													[0] = UART_START_BYTE;
+	CONFIG_temp_UnitSelection													[1] = UART_WRITE;
+	CONFIG_temp_UnitSelection													[2] = UNIT_SEL_ADDR;
+	CONFIG_temp_UnitSelection													[3] = 0x01;
+	CONFIG_temp_UnitSelection													[4] = 0x00;
+	
+	CONFIG_configurationPage_ID_0											[0] = UART_START_BYTE;
+	CONFIG_configurationPage_ID_0											[1] = UART_WRITE;
+	CONFIG_configurationPage_ID_0											[2] = PAGE_ID_ADDR;
+	CONFIG_configurationPage_ID_0											[3] = 0x01;
+	CONFIG_configurationPage_ID_0											[4] = 0x00;
+	
+	CONFIG_configurationPage_ID_1											[0] = UART_START_BYTE;
+	CONFIG_configurationPage_ID_1											[1] = UART_WRITE;
+	CONFIG_configurationPage_ID_1											[2] = PAGE_ID_ADDR;
+	CONFIG_configurationPage_ID_1											[3] = 0x01;
+	CONFIG_configurationPage_ID_1											[4] = 0x01;
+
+	CONFIG_accel_RangeSelection       								[0] = UART_START_BYTE;
+	CONFIG_accel_RangeSelection												[1] = UART_WRITE;
+	CONFIG_accel_RangeSelection   								    [2] = ACCEL_CONFIG_ADDR;
+	CONFIG_accel_RangeSelection       								[3] = 0x01;
+	CONFIG_accel_RangeSelection      							 		[4] = 0x0D;
+		
+	CONFIG_temp_SourceSelection      							 	  [0]  = UART_START_BYTE;
+	CONFIG_temp_SourceSelection     							    [1]  = UART_WRITE;
+	CONFIG_temp_SourceSelection       	  						[2]  = TEMP_SOURCE_ADDR;
+	CONFIG_temp_SourceSelection     	    						[3]  = 0x01;
+	CONFIG_temp_SourceSelection       	  						[4]  = 0x00;	
+	
+	CONFIG_Mode_Configuration 												[0] = UART_START_BYTE;
+	CONFIG_Mode_Configuration 												[1] = UART_WRITE;
+	CONFIG_Mode_Configuration 												[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Configuration 												[3] = 0x01;
+	CONFIG_Mode_Configuration 												[4] = 0x00;
+
+	CONFIG_Mode_Accelerometer_Only 										[0] = UART_START_BYTE;
+	CONFIG_Mode_Accelerometer_Only 										[1] = UART_WRITE;
+	CONFIG_Mode_Accelerometer_Only 										[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Accelerometer_Only 										[3] = 0x01;
+	CONFIG_Mode_Accelerometer_Only 										[4] = 0x01;
+
+	CONFIG_Mode_Magnetometer_Only 										[0] = UART_START_BYTE;
+	CONFIG_Mode_Magnetometer_Only 										[1] = UART_WRITE;
+	CONFIG_Mode_Magnetometer_Only 										[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Magnetometer_Only 										[3] = 0x01;
+	CONFIG_Mode_Magnetometer_Only 										[4] = 0x02;
+
+	CONFIG_Mode_Gyroscope_Only 												[0] = UART_START_BYTE;
+	CONFIG_Mode_Gyroscope_Only 	 											[1] = UART_WRITE;
+	CONFIG_Mode_Gyroscope_Only 	 											[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Gyroscope_Only 	 											[3] = 0x01;
+	CONFIG_Mode_Gyroscope_Only 	 											[4] = 0x03;
+
+	CONFIG_Mode_Accelerometer_Magnetometer						[0] = UART_START_BYTE;
+	CONFIG_Mode_Accelerometer_Magnetometer 						[1] = UART_WRITE;
+	CONFIG_Mode_Accelerometer_Magnetometer 						[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Accelerometer_Magnetometer 						[3] = 0x01;
+	CONFIG_Mode_Accelerometer_Magnetometer 						[4] = 0x04;
+	
+	CONFIG_Mode_Accelerometer_Gyroscope 							[0] = UART_START_BYTE;
+	CONFIG_Mode_Accelerometer_Gyroscope 						 	[1] = UART_WRITE;
+	CONFIG_Mode_Accelerometer_Gyroscope 	 						[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Accelerometer_Gyroscope 	 						[3] = 0x01;
+	CONFIG_Mode_Accelerometer_Gyroscope						 	 	[4] = 0x05;
+	
+	CONFIG_Mode_Magnetometer_Gyroscope 								[0] = UART_START_BYTE;
+	CONFIG_Mode_Magnetometer_Gyroscope 				 				[1] = UART_WRITE;
+	CONFIG_Mode_Magnetometer_Gyroscope 				 				[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Magnetometer_Gyroscope 				 				[3] = 0x01;
+	CONFIG_Mode_Magnetometer_Gyroscope			 	 				[4] = 0x06;
+
+	CONFIG_Mode_Accelerometer_Magnetometer_Gyroscope	[0] = UART_START_BYTE;
+	CONFIG_Mode_Accelerometer_Magnetometer_Gyroscope 	[1] = UART_WRITE;
+	CONFIG_Mode_Accelerometer_Magnetometer_Gyroscope 	[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Accelerometer_Magnetometer_Gyroscope 	[3] = 0x01;
+	CONFIG_Mode_Accelerometer_Magnetometer_Gyroscope 	[4] = 0x07;
+
+	CONFIG_Mode_Inertial_Measurement_Unit 						[0] = UART_START_BYTE;
+	CONFIG_Mode_Inertial_Measurement_Unit 	 					[1] = UART_WRITE;
+	CONFIG_Mode_Inertial_Measurement_Unit 	 					[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Inertial_Measurement_Unit 	 					[3] = 0x01;
+	CONFIG_Mode_Inertial_Measurement_Unit 	 					[4] = 0x08;
+
+	CONFIG_Mode_Compass 															[0] = UART_START_BYTE;
+	CONFIG_Mode_Compass 			 												[1] = UART_WRITE;
+	CONFIG_Mode_Compass											 			 		[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Compass											 			 		[3] = 0x01;
+	CONFIG_Mode_Compass											 			 		[4] = 0x09;
+
+	CONFIG_Mode_Magnet_For_Compass			 							[0] = UART_START_BYTE;
+	CONFIG_Mode_Magnet_For_Compass			 	 						[1] = UART_WRITE;
+	CONFIG_Mode_Magnet_For_Compass			 	 						[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_Magnet_For_Compass			 	 						[3] = 0x01;
+	CONFIG_Mode_Magnet_For_Compass			 	 						[4] = 0x0A;
+			
+	CONFIG_Mode_NDOF_FMC_OFF													[0] = UART_START_BYTE;
+	CONFIG_Mode_NDOF_FMC_OFF 												 	[1] = UART_WRITE;
+	CONFIG_Mode_NDOF_FMC_OFF											 	 	[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_NDOF_FMC_OFF											 	 	[3] = 0x01;
+	CONFIG_Mode_NDOF_FMC_OFF											 	 	[4] = 0x0B;
+												
+	CONFIG_Mode_NDOF 																	[0] = UART_START_BYTE;
+	CONFIG_Mode_NDOF																 	[1] = UART_WRITE;
+	CONFIG_Mode_NDOF 																	[2] = OPR_MODE_ADDR;
+	CONFIG_Mode_NDOF 																	[3] = 0x01;
+	CONFIG_Mode_NDOF 																	[4] = 0x0C;
+	
+}
 void printAccelData(){
 	printf("X = %d, Y = %d, Z = %d  \n", acc_X , acc_Y, acc_Z );
 }	
-PUTCHAR_PROTOTYPE{
-	HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
-	
-	return ch;
-}
-void accDataConversionSoft(){
-	acc_X_LSB = acc_X_LSB - OFFSET_X_LSB;
-	acc_X_MSB = acc_X_MSB - OFFSET_X_MSB;
-		
-	acc_Y_LSB = acc_Y_LSB - OFFSET_Y_LSB;
-	acc_Y_MSB = acc_Y_MSB - OFFSET_Y_MSB;
-	
-	acc_Z_LSB = acc_Z_LSB - OFFSET_Z_LSB;
-	acc_Z_MSB = acc_Z_MSB - OFFSET_Z_MSB;
-	
-	acc_X = (acc_X_MSB << 8) | acc_X_LSB;	
-	acc_Y = (acc_Y_MSB << 8) | acc_Y_LSB;
-	acc_Z = (acc_Z_MSB << 8) | acc_Z_LSB;	
-	
-}
 void accDataConversion(){
-
 	acc_X = (acc_X_MSB << 8) | acc_X_LSB;	
 	acc_Y = (acc_Y_MSB << 8) | acc_Y_LSB;
 	acc_Z = (acc_Z_MSB << 8) | acc_Z_LSB;	
-	
-}
-void initVariables(){
-	tempUnitSelection							[0] = UART_START_BYTE;
-	tempUnitSelection							[1] = UART_WRITE;
-	tempUnitSelection							[2] = UNIT_SEL_ADDR;
-	tempUnitSelection							[3] = 0x01;
-	tempUnitSelection							[4] = 0x00;
-	
-	configurationPage_ID					[0] = UART_START_BYTE;
-	configurationPage_ID					[1] = UART_WRITE;
-	configurationPage_ID					[2] = PAGE_ID_ADDR;
-	configurationPage_ID					[3] = 0x01;
-	configurationPage_ID					[4] = 0x01;
-
-	configurationPage_ID_0					[0] = UART_START_BYTE;
-	configurationPage_ID_0					[1] = UART_WRITE;
-	configurationPage_ID_0					[2] = PAGE_ID_ADDR;
-	configurationPage_ID_0					[3] = 0x01;
-	configurationPage_ID_0					[4] = 0x00;
-	
-	
-	
-	configurationACCELRANGE       [0] = UART_START_BYTE;
-	configurationACCELRANGE       [1] = UART_WRITE;
-	configurationACCELRANGE       [2] = ACCEL_CONFIG_ADDR;
-	configurationACCELRANGE       [3] = 0x01;
-	configurationACCELRANGE       [4] = 0x02;
-	
-	
-	tempSourceSelection       	  [0]  = UART_START_BYTE;
-	tempSourceSelection     	    [1]  = UART_WRITE;
-	tempSourceSelection       	  [2]  = TEMP_SOURCE_ADDR;
-	tempSourceSelection     	    [3]  = 0x01;
-	tempSourceSelection       	  [4]  = 0x00;	
-	
-	configurationSettingsMode 		[0] = UART_START_BYTE;
-	configurationSettingsMode 		[1] = UART_WRITE;
-	configurationSettingsMode 		[2] = OPR_MODE_ADDR;
-	configurationSettingsMode 		[3] = 0x01;
-	configurationSettingsMode 		[4] = 0x00;
-
-	configurationACCONLY 					[0] = UART_START_BYTE;
-	configurationACCONLY 					[1] = UART_WRITE;
-	configurationACCONLY 					[2] = OPR_MODE_ADDR;
-	configurationACCONLY 					[3] = 0x01;
-	configurationACCONLY 					[4] = 0x01;
-
-	configurationMAGONLY 					[0] = UART_START_BYTE;
-	configurationMAGONLY 					[1] = UART_WRITE;
-	configurationMAGONLY 					[2] = OPR_MODE_ADDR;
-	configurationMAGONLY 					[3] = 0x01;
-	configurationMAGONLY 					[4] = 0x02;
-
-	configurationGYROONLY 				[0] = UART_START_BYTE;
-	configurationGYROONLY 	 			[1] = UART_WRITE;
-	configurationGYROONLY 	 			[2] = OPR_MODE_ADDR;
-	configurationGYROONLY 	 			[3] = 0x01;
-	configurationGYROONLY 	 			[4] = 0x03;
-
-	configurationACCMAG 					[0] = UART_START_BYTE;
-	configurationACCMAG 	 				[1] = UART_WRITE;
-	configurationACCMAG 	 				[2] = OPR_MODE_ADDR;
-	configurationACCMAG 	 				[3] = 0x01;
-	configurationACCMAG 	 				[4] = 0x04;
-	
-	configurationACCGYRO 					[0] = UART_START_BYTE;
-	configurationACCGYRO 	 				[1] = UART_WRITE;
-	configurationACCGYRO 	 				[2] = OPR_MODE_ADDR;
-	configurationACCGYRO 	 				[3] = 0x01;
-	configurationACCGYRO 	 				[4] = 0x05;
-	
-	configurationMAGGYRO 					[0] = UART_START_BYTE;
-	configurationMAGGYRO 	 				[1] = UART_WRITE;
-	configurationMAGGYRO 	 				[2] = OPR_MODE_ADDR;
-	configurationMAGGYRO 	 				[3] = 0x01;
-	configurationMAGGYRO 	 				[4] = 0x06;
-
-	configurationAMG 							[0] = UART_START_BYTE;
-	configurationAMG 	 						[1] = UART_WRITE;
-	configurationAMG 	 						[2] = OPR_MODE_ADDR;
-	configurationAMG 	 						[3] = 0x01;
-	configurationAMG 	 						[4] = 0x07;
-
-	configurationIMU 							[0] = UART_START_BYTE;
-	configurationIMU 	 						[1] = UART_WRITE;
-	configurationIMU 	 						[2] = OPR_MODE_ADDR;
-	configurationIMU 	 						[3] = 0x01;
-	configurationIMU 	 						[4] = 0x08;
-
-	configurationCOMPASS 					[0] = UART_START_BYTE;
-	configurationCOMPASS 			 		[1] = UART_WRITE;
-	configurationCOMPASS 			 		[2] = OPR_MODE_ADDR;
-	configurationCOMPASS 			 		[3] = 0x01;
-	configurationCOMPASS 			 		[4] = 0x09;
-
-	configurationM4G 							[0] = UART_START_BYTE;
-	configurationM4G 	 						[1] = UART_WRITE;
-	configurationM4G 	 						[2] = OPR_MODE_ADDR;
-	configurationM4G 	 						[3] = 0x01;
-	configurationM4G 	 						[4] = 0x0A;
-			
-	configurationNDOF_FMC_OFF			[0] = UART_START_BYTE;
-	configurationNDOF_FMC_OFF 	 	[1] = UART_WRITE;
-	configurationNDOF_FMC_OFF 	 	[2] = OPR_MODE_ADDR;
-	configurationNDOF_FMC_OFF 	 	[3] = 0x01;
-	configurationNDOF_FMC_OFF 	 	[4] = 0x0B;
-												
-	configurationFusionModeNDOF 	[0] = UART_START_BYTE;
-	configurationFusionModeNDOF 	[1] = UART_WRITE;
-	configurationFusionModeNDOF 	[2] = OPR_MODE_ADDR;
-	configurationFusionModeNDOF 	[3] = 0x01;
-	configurationFusionModeNDOF 	[4] = 0x0C;
-	
 }
 void HAL_UART_RxCpltCallback (UART_HandleTypeDef *huart){ 	
 	byte_received = 1;
@@ -244,21 +284,20 @@ int getReadData(){
 	receivedDataUARTBuffer[2] = 0x00;
 
 	while (byte_received == 0){
-	if (datareceive == 0){
-		HAL_UART_Receive_IT(&huart1, receivedDataUARTBuffer, 3);
-		datareceive =1;
+		if (datareceive == 0){
+			HAL_UART_Receive_IT(&huart1, receivedDataUARTBuffer, 3);
+			datareceive =1;
+		}
+		if (receivedDataUARTBuffer[0] == 0xEE && receivedDataUARTBuffer[1] != 0x00){
+			HAL_UART_Abort(&huart1);
+			byte_received = 1;
+			data = 999;
+			return data;
+		}
+		if (byte_received == 1){
+			data = receivedDataUARTBuffer[2];
+		}
 	}
-	if (receivedDataUARTBuffer[0] == 0xEE && receivedDataUARTBuffer[1] != 0x00){
-	  HAL_UART_Abort(&huart1);
-		byte_received = 1;
-		data = 999;
-		return data;
-	}
-	if (byte_received == 1){
-		data = receivedDataUARTBuffer[2];
-	}
-
-}
  
  return data;	
 }
@@ -280,95 +319,78 @@ int getTemperature(){
 
 	return data;
 }
-bool configurationSettings(UART_HandleTypeDef *huart, uint8_t *dataToSend, int howManyBytes, int delay) {
-	byte_received   = 0;
-	int datareceive = 0;
-	bool data       = false;
-	receivedDataUART [0] = 0x00;
-	receivedDataUART [1] = 0x00;
-	HAL_UART_Transmit(huart, dataToSend, howManyBytes, delay);
-	while (byte_received == 0){
-		if (datareceive == 0){
-			HAL_UART_Receive_IT(huart, receivedDataUART, 2);
-			datareceive =1;
-		}
-	}
-	if (receivedDataUART[0] == 0xEE && receivedDataUART[1] != 0x01){
-		HAL_UART_Abort(huart);
-		data = true;
-	}
-	if (byte_received == 1 && receivedDataUART[1] != 0xEE && receivedDataUART[1] !=0x00 && receivedDataUART[1] !=0x03){
-		data = false;
+bool sendConfigurationSettings(UART_HandleTypeDef *huart, uint8_t *dataToSend, int howManyBytes, int delay) {
+    byte_received   = 0;
+    int datareceive = 0;
+    bool data       = false;
+    receivedDataUART [0] = 0x00;
+    receivedDataUART [1] = 0x00;
+    HAL_UART_Transmit(huart, dataToSend, howManyBytes, delay);
+    while (byte_received == 0){
+        if (datareceive == 0){
+            HAL_UART_Receive_IT(huart, receivedDataUART, 2);
+            datareceive =1;
+        }
+    }
+    if (receivedDataUART[0] == 0xEE && receivedDataUART[1] != 0x01){
+        HAL_UART_Abort(huart);
+        data = true;
+    }
+    if (byte_received == 1 && receivedDataUART[1] != 0xEE && receivedDataUART[1] !=0x00 && receivedDataUART[1] !=0x03){
+        data = false;
 }
-	
+   
 return data;
 }
-bool getAccData (){
+bool getAccelerometerData (){
+	HAL_UART_Abort(&huart1); 
 	bool error = false;
-	sendDataReadInfo			 [0] = UART_START_BYTE;
-	sendDataReadInfo			 [1] = UART_READ;
-	sendDataReadInfo			 [2] = ACCEL_DATA_X_LSB_ADDR;
-	sendDataReadInfo			 [3] = 0x06;
+ sendDataReadInfo    [0] = UART_START_BYTE;
+ sendDataReadInfo    [1] = UART_READ;
+ sendDataReadInfo    [2] = ACCEL_DATA_X_LSB_ADDR;
+ sendDataReadInfo    [3] = 0x06;
 
-	HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,50);
-	
-	byte_received = 0;
-	data			= 0;
-	int datareceive = 0;
-	
-	receivedDataUARTBuffer[0] = 0x00;
-	receivedDataUARTBuffer[1] = 0x00;
-	receivedDataUARTBuffer[2] = 0x00;
+ HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,50);
+ 
+ byte_received = 0;
+ data   = 0;
+ int datareceive = 0;
+ 
+ receivedDataUARTBuffer[0] = 0x00;
+ receivedDataUARTBuffer[1] = 0x00;
+ receivedDataUARTBuffer[2] = 0x00;
 
-	while (byte_received == 0){
-	if (datareceive == 0){
-		HAL_UART_Receive_IT(&huart1, receivedDataUARTBuffer, 8);
-		datareceive = 1;
-	}
-	if (receivedDataUARTBuffer[0] == 0xEE && receivedDataUARTBuffer[1] != 0x00){
-	  HAL_UART_Abort(&huart1);
-		byte_received = 1;
-		error = true;
-		return error;
-	}
-	if (byte_received == 1){
-		acc_X_LSB = receivedDataUARTBuffer[2];
-		acc_X_MSB = receivedDataUARTBuffer[3];
-		
-		acc_Y_LSB = receivedDataUARTBuffer[4];
-		acc_Y_MSB = receivedDataUARTBuffer[5];
-		
-		acc_Z_LSB = receivedDataUARTBuffer[6];
-		acc_Z_MSB = receivedDataUARTBuffer[7];
-	}
+ while (byte_received == 0){
+ if (datareceive == 0){
+  HAL_UART_Receive_IT(&huart1, receivedDataUARTBuffer, 8);
+  datareceive = 1;
+ }
+ if (receivedDataUARTBuffer[0] == 0xEE && receivedDataUARTBuffer[1] != 0x00){
+   HAL_UART_Abort(&huart1);
+  byte_received = 1;
+  error = true;
+  return error;
+ }
+ if (byte_received == 1){
+  acc_X_LSB = receivedDataUARTBuffer[2];
+  acc_X_MSB = receivedDataUARTBuffer[3];
+  
+  acc_Y_LSB = receivedDataUARTBuffer[4];
+  acc_Y_MSB = receivedDataUARTBuffer[5];
+  
+  acc_Z_LSB = receivedDataUARTBuffer[6];
+  acc_Z_MSB = receivedDataUARTBuffer[7];
+ }
  
 }
  
-	return error;
+ return error;
 
 }
-bool configureAccelRange(){
-	bool error;
-	
-	HAL_Delay(1000);
-	sendDataUARTBuffer[0] = UART_START_BYTE;
-	sendDataUARTBuffer[1] = UART_WRITE;
-	sendDataUARTBuffer[2] = ACCEL_RADIUS_LSB_ADDR;
-	sendDataUARTBuffer[3] = 0x04;
-	sendDataUARTBuffer[4] = 0x00;
-	sendDataUARTBuffer[5] = 0x80;
-	sendDataUARTBuffer[6] = 0x00;
-	sendDataUARTBuffer[7] = 0x00;
-	
-	error = configurationSettings(&huart1, sendDataUARTBuffer, 8, 200);
-	HAL_Delay(1000);
-	
-	return error;
-}
-int getReadDataSingle(uint8_t registerSelection){
+int getReadDataSingleRegister(uint8_t registerSelection){
 
-	byte_received = 0;
-	data			= 0;
+	byte_received   = 0;
+	data			      = 0;
 	int datareceive = 0;
 
 	readDataSingleWriteBuffer[0] = UART_START_BYTE;
@@ -376,66 +398,54 @@ int getReadDataSingle(uint8_t registerSelection){
 	
 	readDataSingleWriteBuffer[2] = registerSelection;
 	readDataSingleWriteBuffer[3] = 0x01;
-	readDataSingleWriteBuffer[4] = 0x02;
 	
-  HAL_UART_Transmit(&huart1, readDataSingleWriteBuffer,5,200);
+  HAL_UART_Transmit(&huart1, readDataSingleWriteBuffer, 4, 200);
 	
 	while (byte_received == 0){
-	if (datareceive == 0){
-		HAL_UART_Receive_IT(&huart1, readDataSingleReadBuffer, 3);
-		datareceive = 1;
+		if (datareceive == 0){
+			HAL_UART_Receive_IT(&huart1, readDataSingleReadBuffer, 3);
+			datareceive = 1;
+		}
+		if (receivedDataUARTBuffer[0] == 0xEE){
+			HAL_UART_Abort(&huart1);
+			byte_received = 1;
+			data = 999;
+			return data;
+		}
+		if (byte_received == 1){
+			data = readDataSingleReadBuffer[2];
+		}
 	}
-	if (receivedDataUARTBuffer[0] == 0xEE){
-	  HAL_UART_Abort(&huart1);
-		byte_received = 1;
-		data = 999;
-		return data;
-	}
-	if (byte_received == 1){
-		data = readDataSingleReadBuffer[2];
-	}
-
-}
  
  return data;		
 }
-void sendConfigurationSettings(){
+void initConfigurationSettings(){
 	if (config_error == false){
 		if (config_error == false){
-			config_error = configurationSettings(&huart1, configurationSettingsMode, 5, 200);
+			config_error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
 		}
 		
+//		if (config_error == false){
+//			config_error = setRegisterMapPage_1();
+//		}		
 		if (config_error == false){
-			config_error = configurationSettings(&huart1, configurationPage_ID, 5, 200);
+			config_error = sendConfigurationSettings(&huart1, CONFIG_accel_RangeSelection, 5, 200);
 		}
-		
+//		if (config_error == false){
+//			config_error = setRegisterMapPage_0();
+//		}		
 		if (config_error == false){
-			dataGetReadDataSingle = getReadDataSingle(ACCEL_CONFIG_ADDR);
-		}
-//		if (config_error == false){
-//			config_error = configurationSettings(&huart1, configurationACCELRANGE, 5, 200);
-//		}
-//		if (config_error == false){
-//			dataGetReadDataSingle = getReadDataSingle(ACCEL_CONFIG_ADDR);
-//		}
-//		if (config_error == false){
-//			config_error = configurationSettings(&huart1, tempSourceSelection, 5, 200);
-//		}	
-//		if (config_error == false){
-//			config_error = configurationSettings(&huart1, tempUnitSelection, 5, 200);
-//		}	
-		if (config_error == false){
-			config_error = configurationSettings(&huart1, configurationPage_ID_0, 5, 200);
-		}
-		if (config_error == false){
-			config_error = configurationSettings(&huart1, configurationACCONLY , 5, 200);
+			config_error = sendConfigurationSettings(&huart1, CONFIG_temp_SourceSelection, 5, 200);
 		}	
-
-		
-		
+		if (config_error == false){
+			config_error = sendConfigurationSettings(&huart1, CONFIG_temp_UnitSelection, 5, 200);
+		}	
+		if (config_error == false){
+			config_error = sendConfigurationSettings(&huart1, CONFIG_Mode_Accelerometer_Only , 5, 200);
+		}		
 	}
 }
-bool configureAccelerometerOffset(){
+bool setAccelerometerOffset(){
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
 	bool hasXDataBeenReceived = false;
 	bool hasYDataBeenReceived = false;
@@ -448,188 +458,116 @@ bool configureAccelerometerOffset(){
 	receivedDataUART[1] = 0x00;
 	
 	while (hasAccelerometerBeenConfigured == false){
-	  TIME_FreeUse = 0;		
-		HAL_Delay(200);
+		TIME_FreeUse = 0;		
+		HAL_Delay(500);
 		
 		while (hasXDataBeenReceived == false){
 			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+			
 			if (TIME_FreeUse >= 1000){
 				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 				TIME_FreeUse = 0;
 			}
-			getAccData();
+			
+			getAccelerometerData();
 			accDataConversion();
 			printAccelData();
+			
 			if (buttonState == 0){
 				OFFSET_X_LSB = acc_X_LSB;
 				OFFSET_X_MSB = acc_X_MSB;
 				hasXDataBeenReceived = true;
-			}
+			}			
 		}
-		HAL_Delay(200);
-		
+		HAL_Delay(500);
+
 		while (hasYDataBeenReceived == false){
 			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+			
 			if (TIME_FreeUse >= 400){
 				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 				TIME_FreeUse = 0;
 			}
-			getAccData();
+			
+			getAccelerometerData();
 			accDataConversion();
 			printAccelData();			
+			
 			if (buttonState == 0){
 				OFFSET_Y_LSB = acc_Y_LSB;
 				OFFSET_Y_MSB = acc_Y_MSB;
 				hasYDataBeenReceived = true;
 			}		
 		}
-		HAL_Delay(200);
+		HAL_Delay(500);
 		
 		while (hasZDataBeenReceived == false){
 			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+			
 			if (TIME_FreeUse >= 100){
 				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-			TIME_FreeUse = 0;
+				TIME_FreeUse = 0;
 			}
-			getAccData();
+			
+			getAccelerometerData();
 			accDataConversion();
 			printAccelData();		
+			
 			if (buttonState == 0){
 				OFFSET_Z_LSB = acc_Z_LSB;
 				OFFSET_Z_MSB = acc_Z_MSB;
 				hasZDataBeenReceived = true;
 			}		
 		}	
-	
-	if (hasXDataBeenReceived == true && hasYDataBeenReceived == true && hasZDataBeenReceived == true){
-		hasAccelerometerBeenConfigured = true;
-	}
+
+		if (hasXDataBeenReceived == true && hasYDataBeenReceived == true && hasZDataBeenReceived == true){
+			hasAccelerometerBeenConfigured = true;
+		}
 	
 	}
 
 	
-	error = configurationSettings(&huart1, configurationSettingsMode, 5, 200);
+	error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
+	if (error == true){
+		error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
+	}
+	//HERE NEED TO CHANGE THE REGISTER PAGE TO WRITE
 	byte_received = 0;
 	HAL_Delay(1000);
 	sendDataUARTBuffer[0] = UART_START_BYTE;
 	sendDataUARTBuffer[1] = UART_WRITE;
 	sendDataUARTBuffer[2] = ACCEL_OFFSET_X_LSB_ADDR;
 	sendDataUARTBuffer[3] = 0x02;
-	
+
 	sendDataUARTBuffer[4] = OFFSET_X_LSB;
 	sendDataUARTBuffer[5] = OFFSET_X_MSB;
 	
+	sendDataUARTBuffer[6] = OFFSET_Y_LSB;
+	sendDataUARTBuffer[7] = OFFSET_Y_MSB;	
+	
+	sendDataUARTBuffer[8] = OFFSET_Z_LSB;
+	sendDataUARTBuffer[9] = OFFSET_Z_MSB;	
 	
 	receivedDataUART[0] = 0x00;
 	receivedDataUART[1] = 0x00;
 	
-	error = configurationSettings(&huart1, sendDataUARTBuffer, 6, 200);
+	error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 10, 200);
+	if (error == true){
+		error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 10, 200);
+	}
 	HAL_Delay(1000);
 	
-	sendDataUARTBuffer[2] = ACCEL_OFFSET_Y_LSB_ADDR;
-	sendDataUARTBuffer[4] = OFFSET_Y_LSB;
-	sendDataUARTBuffer[5] = OFFSET_Y_MSB;
-	error = configurationSettings(&huart1, sendDataUARTBuffer, 6, 200);
-	HAL_Delay(1000);
-	
-	sendDataUARTBuffer[2] = ACCEL_OFFSET_Z_LSB_ADDR;
-	sendDataUARTBuffer[3] = 0x01;
-	sendDataUARTBuffer[4] = OFFSET_Z_LSB;
-	error = configurationSettings(&huart1, sendDataUARTBuffer, 5, 200);
-	HAL_Delay(1000);
-	
-	sendDataUARTBuffer[2] = ACCEL_OFFSET_Z_MSB_ADDR;
-	sendDataUARTBuffer[3] = 0x01;
-	sendDataUARTBuffer[4] = OFFSET_Z_MSB;
-	error = configurationSettings(&huart1, sendDataUARTBuffer, 5, 200);
-	HAL_Delay(1000);	
-	
-	error = configurationSettings(&huart1, configurationACCONLY, 5, 200);
+	error = sendConfigurationSettings(&huart1, CONFIG_Mode_Accelerometer_Only, 5, 200);
 	HAL_Delay(1000);
 	
 	
 	return error;
 }
 
-bool configureAccelerometerOffsetSoft(){
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-	bool hasXDataBeenReceived = false;
-	bool hasYDataBeenReceived = false;
-	bool hasZDataBeenReceived = false;
-  bool error = false;
-	bool hasAccelerometerBeenConfigured = false;
-	OFFSET_X_LSB = 0;
-	OFFSET_X_MSB = 0;
-	OFFSET_Y_LSB = 0;
-	OFFSET_Y_MSB = 0;
-	OFFSET_Z_LSB = 0;
-	OFFSET_Z_MSB = 0;
 
-	HAL_Delay(2000);
-	buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
-	
-	while (hasAccelerometerBeenConfigured == false){
-	  TIME_FreeUse = 0;		
-		HAL_Delay(200);
-		
-		while (hasXDataBeenReceived == false){
-			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
-			if (TIME_FreeUse >= 1000){
-				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-				TIME_FreeUse = 0;
-			}
-			getAccData();
-			accDataConversion();
-			printAccelData();
-			if (buttonState == 0){
-				OFFSET_X_LSB = acc_X_LSB;
-				OFFSET_X_MSB = acc_X_MSB;
-				hasXDataBeenReceived = true;
-			}
-		}
-		HAL_Delay(200);
-		
-		while (hasYDataBeenReceived == false){
-			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
-			if (TIME_FreeUse >= 400){
-				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-				TIME_FreeUse = 0;
-			}
-			getAccData();
-			accDataConversion();
-			printAccelData();			
-			if (buttonState == 0){
-				OFFSET_Y_LSB = acc_Y_LSB;
-				OFFSET_Y_MSB = acc_Y_MSB;
-				hasYDataBeenReceived = true;
-			}		
-		}
-		HAL_Delay(200);
-		
-		while (hasZDataBeenReceived == false){
-			buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
-			if (TIME_FreeUse >= 100){
-				HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-			TIME_FreeUse = 0;
-			}
-			getAccData();
-			accDataConversion();
-			printAccelData();		
-			if (buttonState == 0){
-				OFFSET_Z_LSB = acc_Z_LSB;
-				OFFSET_Z_MSB = acc_Z_MSB;
-				hasZDataBeenReceived = true;
-			}		
-		}	
-	
-	if (hasXDataBeenReceived == true && hasYDataBeenReceived == true && hasZDataBeenReceived == true){
-		hasAccelerometerBeenConfigured = true;
-	}
-	
-	}
-	
-	return error;
-}
+
+
+
 
 
 /* USER CODE END 0 */
@@ -638,28 +576,24 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	initVariables();
+	initializeConfigurationVariables();
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
   /* Configure the system clock */
   SystemClock_Config();
-
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_UART4_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
-
-  /* USER CODE BEGIN 2 */
-	
+  /* USER CODE BEGIN 2 */	
 	//CONFIGURATION SETTINGS
 	HAL_Delay(2000);
-	sendConfigurationSettings();
+	initConfigurationSettings();
 	HAL_Delay(500);
   /* USER CODE END 2 */
 
@@ -674,7 +608,7 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
 	//temperature  = getTemperature();
-	accel_error  = getAccData();
+	accel_error  = getAccelerometerData();
 	dataruined = 0;
 	
 	if (accel_error == false ){
@@ -686,9 +620,6 @@ int main(void)
 
 	buttonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
 	
-//	if calibrationOfAxisMode(5 seconds I have held the user button){
-//		
-//	}
 	printAccelData();
 	isitworking++;
   
@@ -697,7 +628,7 @@ int main(void)
   howManySecondsTheButtonHasBeenHeld = 	howManyMilliSecondsTheButtonHasBeenHeld / 1000;
 	
 	if (howManySecondsTheButtonHasBeenHeld >= 5){		
-		configureAccelerometerOffset_ERROR = configureAccelerometerOffset();
+		configureAccelerometerOffset_ERROR = setAccelerometerOffset();
 	}
 	else{
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
