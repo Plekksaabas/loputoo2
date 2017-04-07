@@ -54,6 +54,7 @@ uint8_t CONFIG_register_Page_0[5], CONFIG_register_Page_1[5];
 uint8_t receivedDataUART[2], receivedDataUARTBuffer [32], sendDataReadInfo[4], sendDataUARTBuffer[10];
 uint8_t transferUartBuffer[64];
 uint8_t readDataSingleReadBuffer[5], readDataSingleWriteBuffer[5], CONFIG_accel_RangeSelection[5];
+uint8_t dataToSendToReadSingleRegister[5];
 int16_t acc_Z, acc_Y, acc_X = 0;
 int isitworking, dataruined = 0;
 int acc_Z_MSB, acc_Z_LSB, acc_Y_MSB, acc_Y_LSB, acc_X_MSB, acc_X_LSB, temperature, data = 0;
@@ -65,6 +66,10 @@ bool config_error = false;
 bool accel_error = false;
 bool configureAccelerometerOffset_ERROR = false;
 int howManySecondsTheButtonHasBeenHeld = 0;
+uint8_t readDataSingleReceiveBuffer[5];
+int variable;
+int variable_old[6];
+int variable_new[6];
 
 
 /* USER CODE END PV */
@@ -90,6 +95,40 @@ static void MX_USART2_UART_Init(void);
 PUTCHAR_PROTOTYPE{
 	HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);	
 	return ch;
+}
+int readSingleRegisterData(uint8_t registerToRead){
+	byte_received = 0;
+	int datareceive = 0;
+	int data;
+	
+	dataToSendToReadSingleRegister [0] = UART_START_BYTE;
+	dataToSendToReadSingleRegister [1] = UART_READ;
+	dataToSendToReadSingleRegister [2] = registerToRead;
+	dataToSendToReadSingleRegister [3] = 0x01;
+	
+	HAL_UART_Transmit(&huart1, dataToSendToReadSingleRegister, 4, 200);
+	
+	receivedDataUARTBuffer[0] = 0x00;
+	receivedDataUARTBuffer[1] = 0x00;
+	receivedDataUARTBuffer[2] = 0x00;
+
+	while (byte_received == 0){
+		if (datareceive == 0){
+			HAL_UART_Receive_IT(&huart1, receivedDataUARTBuffer, 3);
+			datareceive =1;
+		}
+		if (receivedDataUARTBuffer[0] == 0xEE){
+			HAL_UART_Abort(&huart1);
+			byte_received = 1;
+			data = 999;
+			return data;
+		}
+		if (byte_received == 1){
+			data = receivedDataUARTBuffer[2];
+		}
+	}
+	
+return data;
 }
 bool getWriteResonseData(){
 	bool error      = false;
@@ -400,38 +439,6 @@ bool getAccelerometerData (){
  return error;
 
 }
-int getReadDataSingleRegister(uint8_t registerSelection){
-
-	byte_received   = 0;
-	data			      = 0;
-	int datareceive = 0;
-
-	readDataSingleWriteBuffer[0] = UART_START_BYTE;
-	readDataSingleWriteBuffer[1] = UART_READ;
-	
-	readDataSingleWriteBuffer[2] = registerSelection;
-	readDataSingleWriteBuffer[3] = 0x01;
-	
-  HAL_UART_Transmit(&huart1, readDataSingleWriteBuffer, 4, 200);
-	
-	while (byte_received == 0){
-		if (datareceive == 0){
-			HAL_UART_Receive_IT(&huart1, readDataSingleReadBuffer, 3);
-			datareceive = 1;
-		}
-		if (receivedDataUARTBuffer[0] == 0xEE){
-			HAL_UART_Abort(&huart1);
-			byte_received = 1;
-			data = 999;
-			return data;
-		}
-		if (byte_received == 1){
-			data = readDataSingleReadBuffer[2];
-		}
-	}
- 
- return data;		
-}
 void initConfigurationSettings(){
 	if (config_error == false){
 		if (config_error == false){
@@ -538,18 +545,21 @@ bool setAccelerometerOffset(){
 		}
 	
 	}
+	
+	variable_new[0] = 0xFF;
+	variable_new[0] = readSingleRegisterData(0x3D);
 
 	
 	error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
-	if (error == true){
-		error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
-	}
+
 	HAL_Delay(1000);
-	error = sendConfigurationSettings(&huart1, CONFIG_register_Page_0, 5, 200);
-	if (error == true){
-		error = sendConfigurationSettings(&huart1, CONFIG_register_Page_0, 5, 200);
-	}	
+	variable_new[0] = 0xFF;
+	variable_new[0] = readSingleRegisterData(0x3D);
 	
+	error = sendConfigurationSettings(&huart1, CONFIG_register_Page_0, 5, 200);
+	
+	variable_new[0] = 0xFF;
+	variable_new[0] = readSingleRegisterData(0x07);
 	//HERE NEED TO CHANGE THE REGISTER PAGE TO WRITE
 	byte_received = 0;
 	HAL_Delay(1000);
@@ -569,12 +579,31 @@ bool setAccelerometerOffset(){
 	
 	receivedDataUART[0] = 0x00;
 	receivedDataUART[1] = 0x00;
+
+	variable_old[0] = readSingleRegisterData(ACCEL_OFFSET_X_LSB_ADDR);
+	variable_old[1] = readSingleRegisterData(ACCEL_OFFSET_X_MSB_ADDR);
 	
+	variable_old[2] = readSingleRegisterData(ACCEL_OFFSET_Y_LSB_ADDR);
+	variable_old[3] = readSingleRegisterData(ACCEL_OFFSET_Y_MSB_ADDR);
+	
+	variable_old[4] = readSingleRegisterData(ACCEL_OFFSET_Z_LSB_ADDR);
+	variable_old[5] = readSingleRegisterData(ACCEL_OFFSET_Z_MSB_ADDR);
+
+
 	error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 10, 200);
 	if (error == true){
 		error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 10, 200);
 	}
 	HAL_Delay(1000);
+	
+	variable_new[0] = readSingleRegisterData(ACCEL_OFFSET_X_LSB_ADDR);
+	variable_new[1] = readSingleRegisterData(ACCEL_OFFSET_X_MSB_ADDR);
+	
+	variable_new[2] = readSingleRegisterData(ACCEL_OFFSET_Y_LSB_ADDR);
+	variable_new[3] = readSingleRegisterData(ACCEL_OFFSET_Y_MSB_ADDR);
+	
+	variable_new[4] = readSingleRegisterData(ACCEL_OFFSET_Z_LSB_ADDR);
+	variable_new[5] = readSingleRegisterData(ACCEL_OFFSET_Z_MSB_ADDR);	
 	
 	error = sendConfigurationSettings(&huart1, CONFIG_register_Page_0, 5, 200);
 	if (error == true){
@@ -586,6 +615,7 @@ bool setAccelerometerOffset(){
 	
 	return error;
 }
+
 
 
 
@@ -651,7 +681,21 @@ int main(void)
   howManySecondsTheButtonHasBeenHeld = 	howManyMilliSecondsTheButtonHasBeenHeld / 1000;
 	
 	if (howManySecondsTheButtonHasBeenHeld >= 5){		
+		variable_old[0] = readSingleRegisterData(0x07);
+		variable_old[1] = readSingleRegisterData(0x56);
+		variable_old[2] = readSingleRegisterData(0x57);
+		variable_old[3] = readSingleRegisterData(0x58);
+		variable_old[4] = readSingleRegisterData(0x59);
+		variable_old[5] = readSingleRegisterData(0x5A);
 		configureAccelerometerOffset_ERROR = setAccelerometerOffset();
+		variable_new[0] = readSingleRegisterData(0x07);
+		variable_new[1] = readSingleRegisterData(0x56);
+		variable_new[2] = readSingleRegisterData(0x57);
+		variable_new[3] = readSingleRegisterData(0x58);
+		variable_new[4] = readSingleRegisterData(0x59);
+		variable_new[5] = readSingleRegisterData(0x5A);
+
+		
 	}
 	else{
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
