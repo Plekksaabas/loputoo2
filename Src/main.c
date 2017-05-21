@@ -264,7 +264,7 @@ void initializeConfigurationVariables(){
 	CONFIG_accel_RangeSelection												[1] = UART_WRITE;
 	CONFIG_accel_RangeSelection   								    [2] = ACCEL_CONFIG_ADDR;
 	CONFIG_accel_RangeSelection       								[3] = 0x01;
-	CONFIG_accel_RangeSelection      							 		[4] = 0x02;
+	CONFIG_accel_RangeSelection      							 		[4] = 0x12;
 		
 	CONFIG_temp_SourceSelection      							 	  [0]  = UART_START_BYTE;
 	CONFIG_temp_SourceSelection     							    [1]  = UART_WRITE;
@@ -494,10 +494,7 @@ void initConfigurationSettings(){
 		if (config_error == false){
 			config_error = setRegisterMapPage_1();
 		}
-		//Range selection
-		if (config_error == false){
-			config_error = setSingleRegister(0x0D, ACCEL_CONFIG_ADDR);
-		}	
+		data = readSingleRegisterData(0x08);
 		if (config_error == false){
 			config_error = setRegisterMapPage_0();
 		}		
