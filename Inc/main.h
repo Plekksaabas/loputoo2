@@ -43,12 +43,13 @@
 
 /* USER CODE BEGIN Private defines */
 extern int byte_received;
+extern int byte_received_time_wait;
 extern int howManyMilliSeconds;
 extern int howManyMilliSecondsTheButtonHasBeenHeld;
 extern int buttonState;
 extern int TIME_FreeUse;
+extern int byte_received_time;
 /* USER CODE END Private defines */
-
 /**
   * @}
   */ 
