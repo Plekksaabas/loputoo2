@@ -56,12 +56,15 @@ uint8_t receivedDataUART[2], receivedDataUARTBuffer [32], sendDataReadInfo[4], s
 uint8_t transferUartBuffer[64];
 uint8_t readDataSingleReadBuffer[5], readDataSingleWriteBuffer[5], CONFIG_accel_RangeSelection[5];
 uint8_t dataToSendToReadSingleRegister[5];
-int16_t acc_Z, acc_Y, acc_X = 0;
+int16_t acc_1_Z, acc_1_Y, acc_1_X, acc_2_Z, acc_2_Y, acc_2_X = 0;
 int isitworking, dataruined = 0;
-int acc_Z_MSB, acc_Z_LSB, acc_Y_MSB, acc_Y_LSB, acc_X_MSB, acc_X_LSB, temperature, data = 0;
+uint8_t acc_1_Z_MSB, acc_1_Z_LSB, acc_1_Y_MSB, acc_1_Y_LSB, acc_1_X_MSB, acc_1_X_LSB;
+uint8_t acc_2_Z_MSB, acc_2_Z_LSB, acc_2_Y_MSB, acc_2_Y_LSB, acc_2_X_MSB, acc_2_X_LSB;
+int temperature, data = 0;
 uint8_t OFFSET_Z_MSB, OFFSET_Z_LSB, OFFSET_Y_MSB, OFFSET_Y_LSB, OFFSET_X_MSB, OFFSET_X_LSB;
 int acc_X_offset, acc_Y_offset, acc_Z_offset;
-uint8_t acc_X_LSB_FromSensor, acc_X_MSB_FromSensor, acc_Y_LSB_FromSensor, acc_Y_MSB_FromSensor, acc_Z_LSB_FromSensor, acc_Z_MSB_FromSensor;
+uint8_t acc_1_X_LSB_OFFSET, acc_1_X_MSB_OFFSET, acc_1_Y_LSB_OFFSET, acc_1_Y_MSB_OFFSET, acc_1_Z_LSB_OFFSET, acc_1_Z_MSB_OFFSET;
+uint8_t acc_2_X_LSB_OFFSET, acc_2_X_MSB_OFFSET, acc_2_Y_LSB_OFFSET, acc_2_Y_MSB_OFFSET, acc_2_Z_LSB_OFFSET, acc_2_Z_MSB_OFFSET;
 int howManySeconds;
 int Data_getReadDataSingleRegister;
 bool config_error = false;
@@ -361,12 +364,16 @@ void initializeConfigurationVariables(){
 	
 }
 void printAccelData(){
-	printf("X = %d, Y = %d, Z = %d  \n", acc_X , acc_Y, acc_Z );
+	printf("1. X = %d, Y = %d, Z = %d || 2. X = X = %d, Y = %d, Z = %d \n", acc_1_X , acc_1_Y, acc_1_Z, acc_2_X, acc_2_Y, acc_2_Z);
 }	
 void accDataConversion(){
-	acc_X = (acc_X_MSB << 8) | acc_X_LSB;	
-	acc_Y = (acc_Y_MSB << 8) | acc_Y_LSB;
-	acc_Z = (acc_Z_MSB << 8) | acc_Z_LSB;	
+	acc_1_X = (acc_1_X_MSB << 8) | acc_1_X_LSB;	
+	acc_1_Y = (acc_1_Y_MSB << 8) | acc_1_Y_LSB;
+	acc_1_Z = (acc_1_Z_MSB << 8) | acc_1_Z_LSB;	
+	
+	acc_2_X = (acc_2_X_MSB << 8) | acc_2_X_LSB;	
+	acc_2_Y = (acc_2_Y_MSB << 8) | acc_2_Y_LSB;
+	acc_2_Z = (acc_2_Z_MSB << 8) | acc_2_Z_LSB;	
 }
 void HAL_UART_RxCpltCallback (UART_HandleTypeDef *huart){ 	
 	byte_received = 1;
@@ -449,15 +456,15 @@ bool sendConfigurationSettings(UART_HandleTypeDef *huart, uint8_t *dataToSend, i
    
 return data;
 }
-bool getAccelerometerData (){
-	HAL_UART_Abort(&huart1); 
+bool getAccelerometerData (UART_HandleTypeDef *huart){
+	HAL_UART_Abort(huart); 
 	bool error = false;
  sendDataReadInfo    [0] = UART_START_BYTE;
  sendDataReadInfo    [1] = UART_READ;
  sendDataReadInfo    [2] = ACCEL_DATA_X_LSB_ADDR;
  sendDataReadInfo    [3] = 0x06;
 
- HAL_UART_Transmit(&huart1, sendDataReadInfo, 4,50);
+ HAL_UART_Transmit(huart, sendDataReadInfo, 4,50);
  
  byte_received = 0;
  data   = 0;
@@ -466,27 +473,38 @@ bool getAccelerometerData (){
  receivedDataUARTBuffer[1] = 0x00;
  receivedDataUARTBuffer[2] = 0x00;
 
-		HAL_UART_Receive_IT(&huart1, receivedDataUARTBuffer, 8);
+		HAL_UART_Receive_IT(huart, receivedDataUARTBuffer, 8);
 
 	
 while (byte_received == 0){
 	if (receivedDataUARTBuffer[0] == 0xEE && receivedDataUARTBuffer[1] != 0x00){
-		HAL_UART_Abort(&huart1);
+		HAL_UART_Abort(huart);
 		byte_received = 1;
 		error = true;
 		return error;
  }
 }
-if (byte_received == 1){
-	acc_X_LSB = receivedDataUARTBuffer[2];
-	acc_X_MSB = receivedDataUARTBuffer[3];
+if (byte_received == 1 && huart == &huart1){
+	acc_1_X_LSB = receivedDataUARTBuffer[2];
+	acc_1_X_MSB = receivedDataUARTBuffer[3];
 
-	acc_Y_LSB = receivedDataUARTBuffer[4];
-	acc_Y_MSB = receivedDataUARTBuffer[5];
+	acc_1_Y_LSB = receivedDataUARTBuffer[4];
+	acc_1_Y_MSB = receivedDataUARTBuffer[5];
   
-	acc_Z_LSB = receivedDataUARTBuffer[6];
-	acc_Z_MSB = receivedDataUARTBuffer[7];
+	acc_1_Z_LSB = receivedDataUARTBuffer[6];
+	acc_1_Z_MSB = receivedDataUARTBuffer[7];
  }
+
+if (byte_received == 1 && huart == &huart3){
+	acc_2_X_LSB = receivedDataUARTBuffer[2];
+	acc_2_X_MSB = receivedDataUARTBuffer[3];
+
+	acc_2_Y_LSB = receivedDataUARTBuffer[4];
+	acc_2_Y_MSB = receivedDataUARTBuffer[5];
+ 
+	acc_2_Z_LSB = receivedDataUARTBuffer[6];
+	acc_2_Z_MSB = receivedDataUARTBuffer[7];
+ } 
  
  
  return error;
@@ -498,17 +516,17 @@ void initConfigurationSettings_Acc1(){
 			config_error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
 		}
 		if (config_error == false){
-			config_error = sendConfigurationSettings(&huart1, CONFIG_configurationPage_ID_0, 5, 200);
+			config_error = setRegisterMapPage_0(&huart1);
 		}
 		if (config_error == false){
-			acc_X_LSB_FromSensor = readSingleRegister(&huart1, ACCEL_OFFSET_X_LSB_ADDR);
-			acc_X_MSB_FromSensor = readSingleRegister(&huart1, ACCEL_OFFSET_X_MSB_ADDR);
+			acc_1_X_LSB_OFFSET = readSingleRegister(&huart1, ACCEL_OFFSET_X_LSB_ADDR);
+			acc_1_X_MSB_OFFSET = readSingleRegister(&huart1, ACCEL_OFFSET_X_MSB_ADDR);
 			
-			acc_Y_LSB_FromSensor = readSingleRegister(&huart1, ACCEL_OFFSET_Y_LSB_ADDR);
-			acc_Y_MSB_FromSensor = readSingleRegister(&huart1, ACCEL_OFFSET_Y_MSB_ADDR);
+			acc_1_Y_LSB_OFFSET = readSingleRegister(&huart1, ACCEL_OFFSET_Y_LSB_ADDR);
+			acc_1_Y_MSB_OFFSET = readSingleRegister(&huart1, ACCEL_OFFSET_Y_MSB_ADDR);
 			
-			acc_Z_LSB_FromSensor = readSingleRegister(&huart1, ACCEL_OFFSET_Z_LSB_ADDR);
-			acc_Z_MSB_FromSensor = readSingleRegister(&huart1, ACCEL_OFFSET_Z_MSB_ADDR);
+			acc_1_Z_LSB_OFFSET = readSingleRegister(&huart1, ACCEL_OFFSET_Z_LSB_ADDR);
+			acc_1_Z_MSB_OFFSET = readSingleRegister(&huart1, ACCEL_OFFSET_Z_MSB_ADDR);
 		}
 		
 		if (config_error == false){
@@ -533,7 +551,6 @@ void initConfigurationSettings_Acc1(){
 	}
 }
 void initConfigurationSettings_Acc2(){
-	config_error = false;
 	if (config_error == false){
 		if (config_error == false){
 			config_error = sendConfigurationSettings(&huart3, CONFIG_Mode_Configuration, 5, 200);
@@ -542,14 +559,14 @@ void initConfigurationSettings_Acc2(){
 			config_error = sendConfigurationSettings(&huart3, CONFIG_configurationPage_ID_0, 5, 200);
 		}
 		if (config_error == false){
-			acc_X_LSB_FromSensor = readSingleRegister(&huart3, ACCEL_OFFSET_X_LSB_ADDR);
-			acc_X_MSB_FromSensor = readSingleRegister(&huart3, ACCEL_OFFSET_X_MSB_ADDR);
+			acc_1_X_LSB_OFFSET = readSingleRegister(&huart3, ACCEL_OFFSET_X_LSB_ADDR);
+			acc_1_X_MSB_OFFSET = readSingleRegister(&huart3, ACCEL_OFFSET_X_MSB_ADDR);
 			
-			acc_Y_LSB_FromSensor = readSingleRegister(&huart3, ACCEL_OFFSET_Y_LSB_ADDR);
-			acc_Y_MSB_FromSensor = readSingleRegister(&huart3, ACCEL_OFFSET_Y_MSB_ADDR);
+			acc_1_Y_LSB_OFFSET = readSingleRegister(&huart3, ACCEL_OFFSET_Y_LSB_ADDR);
+			acc_1_Y_MSB_OFFSET = readSingleRegister(&huart3, ACCEL_OFFSET_Y_MSB_ADDR);
 			
-			acc_Z_LSB_FromSensor = readSingleRegister(&huart3, ACCEL_OFFSET_Z_LSB_ADDR);
-			acc_Z_MSB_FromSensor = readSingleRegister(&huart3, ACCEL_OFFSET_Z_MSB_ADDR);
+			acc_1_Z_LSB_OFFSET = readSingleRegister(&huart3, ACCEL_OFFSET_Z_LSB_ADDR);
+			acc_1_Z_MSB_OFFSET = readSingleRegister(&huart3, ACCEL_OFFSET_Z_MSB_ADDR);
 		}
 		
 		if (config_error == false){
@@ -573,7 +590,7 @@ void initConfigurationSettings_Acc2(){
 		}		
 	}
 }	
-bool setAccelerometerOffset(){
+bool setAccelerometerOffset(UART_HandleTypeDef *huart){
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
 	bool hasXDataBeenReceived = false;
 	bool hasYDataBeenReceived = false;
@@ -598,13 +615,13 @@ bool setAccelerometerOffset(){
 				TIME_FreeUse = 0;
 			}
 			
-			getAccelerometerData();
+			getAccelerometerData(huart);
 			accDataConversion();
 			printAccelData();
 			
 			if (buttonState == 0){
-				OFFSET_X_LSB = acc_X_LSB;
-				OFFSET_X_MSB = acc_X_MSB;
+				OFFSET_X_LSB = acc_1_X_LSB;
+				OFFSET_X_MSB = acc_1_X_MSB;
 				hasXDataBeenReceived = true;
 			}			
 		}
@@ -618,13 +635,13 @@ bool setAccelerometerOffset(){
 				TIME_FreeUse = 0;
 			}
 			
-			getAccelerometerData();
+			getAccelerometerData(huart);
 			accDataConversion();
 			printAccelData();			
 			
 			if (buttonState == 0){
-				OFFSET_Y_LSB = acc_Y_LSB;
-				OFFSET_Y_MSB = acc_Y_MSB;
+				OFFSET_Y_LSB = acc_1_Y_LSB;
+				OFFSET_Y_MSB = acc_1_Y_MSB;
 				hasYDataBeenReceived = true;
 			}		
 		}
@@ -638,13 +655,13 @@ bool setAccelerometerOffset(){
 				TIME_FreeUse = 0;
 			}
 			
-			getAccelerometerData();
+			getAccelerometerData(huart);
 			accDataConversion();
 			printAccelData();		
 			
 			if (buttonState == 0){
-				OFFSET_Z_LSB = acc_Z_LSB;
-				OFFSET_Z_MSB = acc_Z_MSB;
+				OFFSET_Z_LSB = acc_1_Z_LSB;
+				OFFSET_Z_MSB = acc_1_Z_MSB;
 				hasZDataBeenReceived = true;
 			}		
 		}	
@@ -671,9 +688,9 @@ bool setAccelerometerOffset(){
 	sendDataUARTBuffer[8] = OFFSET_Z_LSB;
 	sendDataUARTBuffer[9] = OFFSET_Z_MSB;
 	
-	error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 10, 200);
+	error = sendConfigurationSettings(huart, sendDataUARTBuffer, 10, 200);
 	HAL_Delay(1000);
-	error = sendConfigurationSettings(&huart1, CONFIG_Mode_Accelerometer_Only, 5, 200);
+	error = sendConfigurationSettings(huart, CONFIG_Mode_Accelerometer_Only, 5, 200);
 	HAL_Delay(1000);
 	
 	
@@ -717,7 +734,7 @@ int main(void)
 	//CONFIGURATION SETTINGS
 	HAL_Delay(1000);
 	initConfigurationSettings_Acc1();
-	//initConfigurationSettings_Acc2();
+	initConfigurationSettings_Acc2();
 	HAL_Delay(500);
 	
 	
@@ -739,7 +756,11 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
 	//temperature  = getTemperature();
-	accel_error  = getAccelerometerData();
+	accel_error  = getAccelerometerData(&huart1);
+	if (accel_error == false){
+		accel_error = getAccelerometerData(&huart3);
+	}
+		
 	dataruined = 0;
 	
 	if (accel_error == false ){
@@ -759,7 +780,7 @@ int main(void)
   howManySecondsTheButtonHasBeenHeld = 	howManyMilliSecondsTheButtonHasBeenHeld / 1000;
 	
 	if (howManySecondsTheButtonHasBeenHeld >= 5){		
-		configureAccelerometerOffset_ERROR = setAccelerometerOffset();	
+		configureAccelerometerOffset_ERROR = setAccelerometerOffset(&huart1);	
 	}
 	else{
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
