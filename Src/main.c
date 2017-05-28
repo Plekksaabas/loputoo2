@@ -68,8 +68,8 @@ bool configureAccelerometerOffset_ERROR = false;
 int howManySecondsTheButtonHasBeenHeld = 0;
 uint8_t readDataSingleReceiveBuffer[5];
 int variable;
-int variable_old[6];
-int variable_new[6];
+uint8_t variable_old[6];
+uint8_t variable_new[6];
 
 
 /* USER CODE END PV */
@@ -134,7 +134,7 @@ bool setSingleRegister(uint8_t dataToSend, uint8_t registerToSend ){
 		
 	return error;
 }
-int readSingleRegisterData(uint8_t registerToRead){
+int  readSingleRegisterData(uint8_t registerToRead){
 	byte_received = 0;
 	int datareceive = 0;
 	int data;
@@ -363,7 +363,7 @@ void HAL_UART_RxCpltCallback (UART_HandleTypeDef *huart){
 	byte_received = 1;
 }
 
-int getReadData(){
+int  getReadData(){
 
 	byte_received = 0;
 	data			= 0;
@@ -394,7 +394,7 @@ int getReadData(){
 	
 
 
-int getTemperature(){
+int  getTemperature(){
 	
 	int data = 0;
 	sendDataReadInfo			 [0] = UART_START_BYTE;
@@ -481,6 +481,37 @@ void initConfigurationSettings(){
 		if (config_error == false){
 			config_error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
 		}
+		if (config_error == false){
+			config_error = sendConfigurationSettings(&huart1, CONFIG_configurationPage_ID_0, 5, 200);
+		}
+		if (config_error == false){
+			
+			variable_old[0] = readSingleRegisterData(ACCEL_OFFSET_X_LSB_ADDR);
+			variable_old[1] = readSingleRegisterData(ACCEL_OFFSET_X_MSB_ADDR);
+			
+			variable_old[2] = readSingleRegisterData(ACCEL_OFFSET_Y_LSB_ADDR);
+			variable_old[3] = readSingleRegisterData(ACCEL_OFFSET_Y_MSB_ADDR);
+			
+			variable_old[4] = readSingleRegisterData(ACCEL_OFFSET_Z_LSB_ADDR);
+			variable_old[5] = readSingleRegisterData(ACCEL_OFFSET_Z_MSB_ADDR);			
+			
+			sendDataUARTBuffer [0]= UART_START_BYTE;
+			sendDataUARTBuffer [1]= UART_WRITE;
+
+			sendDataUARTBuffer [2]= ACCEL_OFFSET_X_LSB_ADDR;
+			sendDataUARTBuffer [3]= 0x06;
+
+			sendDataUARTBuffer [4]= 0xBE;
+			sendDataUARTBuffer [5]= 0xFF;
+			
+			sendDataUARTBuffer [6]= 0xBE;
+			sendDataUARTBuffer [7]= 0xFF;
+			
+			sendDataUARTBuffer [8]= 0x23;
+			sendDataUARTBuffer [9]= 0x01;
+			
+			config_error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 10, 200);
+		}
 		
 		if (config_error == false){
 			config_error = sendConfigurationSettings(&huart1, CONFIG_configurationPage_ID_1, 5, 200);
@@ -501,7 +532,6 @@ void initConfigurationSettings(){
 		if (config_error == false){
 			config_error = sendConfigurationSettings(&huart1, CONFIG_Mode_Accelerometer_Only , 5, 200);
 		}		
-
 	}
 }
 bool setAccelerometerOffset(){
@@ -588,93 +618,40 @@ bool setAccelerometerOffset(){
 	
 	//</BUTTON TOGGLE>
 	
-	variable_new[0] = 0xFF;
-	variable_new[0] = readSingleRegisterData(OPR_MODE_ADDR);
+	error = setRegisterMapPage_0();
 	
-	error = sendConfigurationSettings(&huart1, CONFIG_Mode_Configuration, 5, 200);
-
+	variable_old[0] = 0xFF;
+	variable_old[0] = 0xFF;
+	variable_old[0] = readSingleRegisterData(PAGE_ID_ADDR);
+	variable_old[1] = readSingleRegisterData(OPR_MODE_ADDR);
+	
+	error = setSingleRegister(0x00, OPR_MODE_ADDR);
 	HAL_Delay(1000);
-	variable_new[0] = 0xFF;
-	variable_new[0] = readSingleRegisterData(OPR_MODE_ADDR);
-
-	variable_new[0] = 0xFF;
-	variable_new[0] = readSingleRegisterData(PAGE_ID_ADDR);
-	
-	error = sendConfigurationSettings(&huart1, CONFIG_register_Page_0, 5, 200);
-	
-	variable_new[0] = 0xFF;
-	variable_new[0] = readSingleRegisterData(PAGE_ID_ADDR);
-	//HERE NEED TO CHANGE THE REGISTER PAGE TO WRITE
-	
-	variable_old[0] = readSingleRegisterData(ACCEL_OFFSET_X_LSB_ADDR);
-	variable_old[1] = readSingleRegisterData(ACCEL_OFFSET_X_MSB_ADDR);
-	
-	variable_old[2] = readSingleRegisterData(ACCEL_OFFSET_Y_LSB_ADDR);
-	variable_old[3] = readSingleRegisterData(ACCEL_OFFSET_Y_MSB_ADDR);
-	
-	variable_old[4] = readSingleRegisterData(ACCEL_OFFSET_Z_LSB_ADDR);
-	variable_old[5] = readSingleRegisterData(ACCEL_OFFSET_Z_MSB_ADDR);
-	
-	byte_received = 0;
+	variable_old[1] = readSingleRegisterData(OPR_MODE_ADDR);
+		
 	HAL_Delay(1000);
+	
 	sendDataUARTBuffer[0] = UART_START_BYTE;
 	sendDataUARTBuffer[1] = UART_WRITE;
 	sendDataUARTBuffer[2] = ACCEL_OFFSET_X_LSB_ADDR;
-	sendDataUARTBuffer[3] = 0x02;
-
+	sendDataUARTBuffer[3] = 0x06;
 	sendDataUARTBuffer[4] = OFFSET_X_LSB;
 	sendDataUARTBuffer[5] = OFFSET_X_MSB;
+	sendDataUARTBuffer[6] = OFFSET_Y_LSB;
+	sendDataUARTBuffer[7] = OFFSET_Y_MSB;
+	sendDataUARTBuffer[8] = OFFSET_Z_LSB;
+	sendDataUARTBuffer[9] = OFFSET_Z_MSB;
 	
-	error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 6, 200);
-	
-	sendDataUARTBuffer[0] = UART_START_BYTE;
-	sendDataUARTBuffer[1] = UART_WRITE;
-	sendDataUARTBuffer[2] = ACCEL_OFFSET_Y_LSB_ADDR;
-	sendDataUARTBuffer[3] = 0x02;
-
-	sendDataUARTBuffer[4] = OFFSET_Y_LSB;
-	sendDataUARTBuffer[5] = OFFSET_Y_MSB;
-
-	error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 6, 200);
-	
-	sendDataUARTBuffer[0] = UART_START_BYTE;
-	sendDataUARTBuffer[1] = UART_WRITE;
-	sendDataUARTBuffer[2] = ACCEL_OFFSET_Z_LSB_ADDR;
-	sendDataUARTBuffer[3] = 0x01;
-
-	sendDataUARTBuffer[4] = OFFSET_Z_LSB;
-		
-	error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 5, 200);
-	
-	sendDataUARTBuffer[0] = UART_START_BYTE;
-	sendDataUARTBuffer[1] = UART_WRITE;
-	sendDataUARTBuffer[2] = ACCEL_OFFSET_Z_MSB_ADDR;
-	sendDataUARTBuffer[3] = 0x01;
-
-	sendDataUARTBuffer[4] = OFFSET_Z_MSB;
-	
-	error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 5, 200);
-
-////	error = setSingleRegister(OFFSET_X_LSB, ACCEL_OFFSET_X_LSB_ADDR);
-////	variable_new[0] = readSingleRegisterData(ACCEL_OFFSET_X_LSB_ADDR);
-////	
-////	error = setSingleRegister(OFFSET_X_MSB, ACCEL_OFFSET_X_MSB_ADDR);
-////	variable_new[1] = readSingleRegisterData(ACCEL_OFFSET_X_MSB_ADDR);
-////	
-////	error = setSingleRegister(OFFSET_Y_LSB, ACCEL_OFFSET_Y_LSB_ADDR);
-////	variable_new[2] = readSingleRegisterData(ACCEL_OFFSET_Y_LSB_ADDR);
-////	
-////	error = setSingleRegister(OFFSET_Y_MSB, ACCEL_OFFSET_Y_MSB_ADDR);
-////	variable_new[3] = readSingleRegisterData(ACCEL_OFFSET_Y_MSB_ADDR);
-////	
-////	error = setSingleRegister(OFFSET_Z_LSB, ACCEL_OFFSET_Z_LSB_ADDR);
-////	variable_new[4] = readSingleRegisterData(ACCEL_OFFSET_Z_LSB_ADDR);
-////	
-////	error = setSingleRegister(OFFSET_Z_MSB, ACCEL_OFFSET_Z_MSB_ADDR);
-////	variable_new[5] = readSingleRegisterData(ACCEL_OFFSET_Z_MSB_ADDR);
-	
+	error = sendConfigurationSettings(&huart1, sendDataUARTBuffer, 10, 1000);
 	HAL_Delay(1000);
 	
+	variable_new[0] = 0xFF;
+	variable_new[1] = 0xFF;
+	variable_new[2] = 0xFF;
+	variable_new[3] = 0xFF;
+	variable_new[4] = 0xFF;
+	variable_new[5] = 0xFF;
+
 	variable_new[0] = readSingleRegisterData(ACCEL_OFFSET_X_LSB_ADDR);
 	variable_new[1] = readSingleRegisterData(ACCEL_OFFSET_X_MSB_ADDR);
 	
@@ -682,10 +659,9 @@ bool setAccelerometerOffset(){
 	variable_new[3] = readSingleRegisterData(ACCEL_OFFSET_Y_MSB_ADDR);
 	
 	variable_new[4] = readSingleRegisterData(ACCEL_OFFSET_Z_LSB_ADDR);
-	variable_new[5] = readSingleRegisterData(ACCEL_OFFSET_Z_MSB_ADDR);	
+	variable_new[5] = readSingleRegisterData(ACCEL_OFFSET_Z_MSB_ADDR);
 	
-	error = setRegisterMapPage_0();
-
+	
 	error = sendConfigurationSettings(&huart1, CONFIG_Mode_Accelerometer_Only, 5, 200);
 	HAL_Delay(1000);
 	
